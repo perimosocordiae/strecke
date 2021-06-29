@@ -140,7 +140,7 @@ fn test_add_players() {
             port: Port::D,
         })
         .unwrap(),
-        1
+        0
     );
     assert_eq!(b.players.len(), 1);
     assert_eq!(b.players[0].port, Port::D);
