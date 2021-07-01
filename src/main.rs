@@ -1,7 +1,10 @@
 mod board;
 mod tiles;
 
-fn main() {
+use warp::Filter;
+
+#[tokio::main]
+async fn main() {
     let mut b = board::Board::new();
     let p1 = b
         .add_player(board::Position {
@@ -20,4 +23,11 @@ fn main() {
         "After one move, player {} is at {:?} and game_over={}",
         p1, b.players[p1], game_over
     );
+
+    // GET /hello/warp => 200 OK with body "Hello, warp!"
+    let hello = warp::path!("hello" / String)
+        .and(warp::header("user-agent"))
+        .map(|name: String, agent: String| format!("Hello {}! Your agent is {}", name, agent));
+
+    warp::serve(hello).run(([127, 0, 0, 1], 3030)).await;
 }
