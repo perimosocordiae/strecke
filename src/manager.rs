@@ -21,7 +21,7 @@ pub struct PlayerMove {
 }
 
 pub struct GameManager {
-    board: Board,
+    pub board: Board,
     tile_stack: Vec<Tile>,
     players: Vec<Player>,
     current_player: usize,

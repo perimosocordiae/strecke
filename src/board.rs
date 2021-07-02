@@ -1,6 +1,7 @@
 use crate::tiles::{Direction, Port, Tile};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Position {
     pub row: i8,
     pub col: i8,
@@ -49,7 +50,7 @@ fn test_is_valid_direction() {
     .is_valid_direction(Direction::East));
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Board {
     grid: [[Option<Tile>; 6]; 6],
     pub players: Vec<Position>,

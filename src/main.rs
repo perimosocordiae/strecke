@@ -2,16 +2,21 @@ mod board;
 mod manager;
 mod tiles;
 
-extern crate pretty_env_logger;
-#[macro_use]
-extern crate log;
-
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
+
+type Database = Arc<Mutex<manager::GameManager>>;
 
 #[tokio::main]
 async fn main() {
+    // Run with RUST_LOG=info to see log messages.
+    pretty_env_logger::init();
+
     let mut rng = rand::thread_rng();
     let mut gm = manager::GameManager::new(&mut rng);
+
+    // Start demo code to exercise the game logic--------------------
     gm.register_player(
         "CJ",
         board::Position {
@@ -30,21 +35,25 @@ async fn main() {
     .unwrap();
     gm.take_turn(&serde_json::from_str(&fake_json).unwrap())
         .unwrap();
+    // End demo code ------------------------------------------------
 
-    // Run with RUST_LOG=info to see log messages.
-    pretty_env_logger::init();
+    let db: Database = Arc::new(Mutex::new(gm));
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
 
-    // GET /agent/$name/ => 200 OK with body "Hello $name!"
-    let hello = warp::path!("agent" / String)
-        .and(warp::header("user-agent"))
-        .map(|name: String, agent: String| {
-            info!("Got a request from {}", name);
-            format!("Hello {}! Your agent is {}", name, agent)
-        });
+    // GET /board => JSON
+    let board = warp::path!("board")
+        .map(move || db.clone())
+        .and_then(get_board_json);
 
-    let routes = warp::get().and(index.or(hello));
+    let routes = warp::get().and(index.or(board));
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+}
+
+async fn get_board_json(
+    db: Database,
+) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let gm = db.lock().await;
+    Ok(warp::reply::json(&gm.board))
 }
