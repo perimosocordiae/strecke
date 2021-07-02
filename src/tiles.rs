@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq, Clone, Copy)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
 pub enum Direction {
     North,
     West,
@@ -37,7 +39,7 @@ fn test_turn_left() {
     assert_eq!(r, Direction::South);
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
 pub enum Port {
     A, // Top left
     B, // Top right
@@ -96,7 +98,7 @@ impl Port {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Tile {
     layout: [(Port, Port); 4],
     facing: Direction,

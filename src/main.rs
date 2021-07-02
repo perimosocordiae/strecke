@@ -1,33 +1,50 @@
 mod board;
+mod manager;
 mod tiles;
+
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
 
 use warp::Filter;
 
 #[tokio::main]
 async fn main() {
-    let mut b = board::Board::new();
-    let p1 = b
-        .add_player(board::Position {
+    let mut rng = rand::thread_rng();
+    let mut gm = manager::GameManager::new(&mut rng);
+    gm.register_player(
+        "CJ",
+        board::Position {
             row: 2,
             col: 6,
             port: tiles::Port::G,
-        })
+        },
+    )
+    .unwrap();
+    gm.rotate_tile(0, 0);
+    let fake_json = serde_json::to_string(&manager::PlayerMove {
+        tile_index: 0,
+        row: 2,
+        col: 5,
+    })
+    .unwrap();
+    gm.take_turn(&serde_json::from_str(&fake_json).unwrap())
         .unwrap();
-    println!("Player {} is at {:?}", p1, b.players[p1]);
 
-    let mut tile_pile = tiles::all_tiles();
-    let x = tile_pile.pop().unwrap().rotate_left();
-    println!("Player {} has {:?}", p1, x);
-    let game_over = b.play_tile(p1, x, 2, 5).unwrap();
-    println!(
-        "After one move, player {} is at {:?} and game_over={}",
-        p1, b.players[p1], game_over
-    );
+    // Run with RUST_LOG=info to see log messages.
+    pretty_env_logger::init();
 
-    // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello = warp::path!("hello" / String)
+    let index = warp::path::end().and(warp::fs::file("./static/index.html"));
+
+    // GET /agent/$name/ => 200 OK with body "Hello $name!"
+    let hello = warp::path!("agent" / String)
         .and(warp::header("user-agent"))
-        .map(|name: String, agent: String| format!("Hello {}! Your agent is {}", name, agent));
+        .map(|name: String, agent: String| {
+            info!("Got a request from {}", name);
+            format!("Hello {}! Your agent is {}", name, agent)
+        });
 
-    warp::serve(hello).run(([127, 0, 0, 1], 3030)).await;
+    let routes = warp::get().and(index.or(hello));
+
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

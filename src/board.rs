@@ -72,7 +72,7 @@ impl Board {
     pub fn play_tile(
         &mut self,
         player_idx: usize,
-        tile: Tile,
+        tile: &Tile,
         row: usize,
         col: usize,
     ) -> Result<bool, String> {
@@ -88,7 +88,7 @@ impl Board {
             ));
         }
         pos.update(row as i8, col as i8, &tile);
-        self.grid[row][col] = Some(tile);
+        self.grid[row][col] = Some(*tile);
         // TODO: return a sequence of positions
         loop {
             let (d_row, d_col) = pos.port.facing_side().grid_offsets();
@@ -110,7 +110,12 @@ impl Board {
     }
 }
 
-fn adjacent_side(src_row: i8, src_col: i8, dst_row: i8, dst_col: i8) -> Result<Direction, String> {
+fn adjacent_side(
+    src_row: i8,
+    src_col: i8,
+    dst_row: i8,
+    dst_col: i8,
+) -> Result<Direction, String> {
     match (dst_row - src_row, dst_col - src_col) {
         (0, -1) => Ok(Direction::West),
         (0, 1) => Ok(Direction::East),
