@@ -40,13 +40,14 @@ async fn main() {
     let db: Database = Arc::new(Mutex::new(gm));
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
+    let files = warp::path("static").and(warp::fs::dir("./static/"));
 
     // GET /board => JSON
     let board = warp::path!("board")
         .map(move || db.clone())
         .and_then(get_board_json);
 
-    let routes = warp::get().and(index.or(board));
+    let routes = warp::get().and(index.or(files).or(board));
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

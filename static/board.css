@@ -1,0 +1,14 @@
+.board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  height: 80vw;
+  width: 80vw;
+  margin: 0 auto;
+}
+
+.tile {
+  border: 1px solid black;
+  border-radius: 0.5em;
+  background-color: aqua;
+}
