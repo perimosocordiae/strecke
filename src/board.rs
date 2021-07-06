@@ -6,11 +6,12 @@ pub struct Position {
     pub row: i8,
     pub col: i8,
     pub port: Port,
+    pub alive: bool,
 }
 
 impl Position {
     fn is_valid_start(&self) -> bool {
-        if self.col < -1 || self.col > 6 {
+        if self.col < -1 || self.col > 6 || !self.alive {
             return false;
         }
         match self.port {
@@ -40,7 +41,8 @@ fn test_is_valid_start() {
     assert!(Position {
         row: -1,
         col: 2,
-        port: Port::E
+        port: Port::E,
+        alive: true
     }
     .is_valid_start());
 }
@@ -65,27 +67,33 @@ impl Board {
         self.players.push(pos);
         Ok(self.players.len() - 1)
     }
-    pub fn play_tile(&mut self, player_idx: usize, tile: &Tile) -> bool {
+    pub fn play_tile(&mut self, player_idx: usize, tile: &Tile) {
         let pos = &mut self.players[player_idx];
         let (row, col) = pos.next_tile_position();
         pos.update(row, col, &tile);
         self.grid[row as usize][col as usize] = Some(*tile);
-        // TODO: return a sequence of positions
-        loop {
-            let (d_row, d_col) = pos.port.facing_side().grid_offsets();
-            let r = pos.row + d_row;
-            let c = pos.col + d_col;
-            if !(0..6).contains(&r) || !(0..6).contains(&c) {
-                pos.row = r;
-                pos.col = c;
-                pos.port = pos.port.flip();
-                return true; // Game over for this player.
-            }
-            match self.grid[r as usize][c as usize] {
-                // Hit another tile, traverse and keep looping.
-                Some(t) => pos.update(r, c, &t),
-                // Hit a blank cell, stop.
-                None => return false,
+        self.move_players();
+    }
+    // TODO: record the trajectory of each player?
+    fn move_players(&mut self) {
+        for pos in self.players.iter_mut() {
+            while pos.alive {
+                let (d_row, d_col) = pos.port.facing_side().grid_offsets();
+                let r = pos.row + d_row;
+                let c = pos.col + d_col;
+                if !(0..6).contains(&r) || !(0..6).contains(&c) {
+                    pos.row = r;
+                    pos.col = c;
+                    pos.port = pos.port.flip();
+                    pos.alive = false;
+                } else {
+                    match self.grid[r as usize][c as usize] {
+                        // Hit another tile, traverse and keep looping.
+                        Some(t) => pos.update(r, c, &t),
+                        // Hit a blank cell, stop iterating.
+                        None => break,
+                    }
+                }
             }
         }
     }
@@ -106,6 +114,7 @@ fn test_add_players() {
             row: 1,
             col: -1,
             port: Port::D,
+            alive: true,
         })
         .unwrap(),
         0

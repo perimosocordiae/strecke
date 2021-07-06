@@ -24,9 +24,9 @@ function playTile(idx) {
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
 }
 
-function rotateTile(idx) {
+function rotateTile(playerIdx, tileIdx) {
   let xhr = new XMLHttpRequest();
-  xhr.open('POST', `/rotate/0/${idx}`);
+  xhr.open('POST', `/rotate/${playerIdx}/${tileIdx}`);
   xhr.send();
   xhr.onload = () => {
     if (xhr.status != 200) {
@@ -39,6 +39,8 @@ function rotateTile(idx) {
 }
 
 function renderHand(hand) {
+  let subtitle = document.getElementsByClassName('subtitle')[0];
+  subtitle.innerText = `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
   let handContainer = document.getElementsByClassName('hand')[0];
   handContainer.innerHTML = '';
   for (let idx = 0; idx < hand.tiles_in_hand.length; ++idx) {
@@ -50,7 +52,7 @@ function renderHand(hand) {
     wrap.appendChild(elt);
     let rotBtn = document.createElement('button');
     rotBtn.innerText = 'Rotate';
-    rotBtn.onclick = () => rotateTile(idx);
+    rotBtn.onclick = () => rotateTile(hand.board_index, idx);
     wrap.appendChild(rotBtn);
     let playBtn = document.createElement('button');
     playBtn.innerText = 'Play';

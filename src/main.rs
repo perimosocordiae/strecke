@@ -23,6 +23,17 @@ async fn main() {
             row: 2,
             col: 6,
             port: tiles::Port::G,
+            alive: true,
+        },
+    )
+    .unwrap();
+    gm.register_player(
+        "Bob",
+        board::Position {
+            row: -1,
+            col: 3,
+            port: tiles::Port::E,
+            alive: true,
         },
     )
     .unwrap();
@@ -82,7 +93,11 @@ async fn play_tile(
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
     let mut gm = db.lock().await;
-    Ok(if gm.take_turn(idx) { "Game Over" } else { "OK" })
+    Ok(match gm.take_turn(idx) {
+        0 => "Everyone loses",
+        1 => "Somebody won",
+        _ => "OK",
+    })
 }
 
 async fn rotate_tile(

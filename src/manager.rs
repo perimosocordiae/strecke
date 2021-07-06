@@ -13,11 +13,6 @@ pub struct Player {
     tiles_in_hand: Vec<Tile>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct PlayerMove {
-    pub tile_index: usize,
-}
-
 pub struct GameManager {
     pub board: Board,
     tile_stack: Vec<Tile>,
@@ -50,22 +45,60 @@ impl GameManager {
         });
         Ok(())
     }
-    pub fn take_turn(&mut self, tile_index: usize) -> bool {
-        let p = &mut self.players[self.current_player_idx];
-        let tile = &p.tiles_in_hand[tile_index];
-        let game_over = self.board.play_tile(p.board_index, tile);
-        p.tiles_in_hand.remove(tile_index);
-        if game_over {
-            // TODO: remove this player from the active set,
-            // and return their tiles to the stack / other players.
-            return true;
+    pub fn take_turn(&mut self, tile_index: usize) -> usize {
+        let bidx = self.players[self.current_player_idx].board_index;
+        {
+            let p = &mut self.players[self.current_player_idx];
+            self.board.play_tile(bidx, &p.tiles_in_hand[tile_index]);
+            p.tiles_in_hand.remove(tile_index);
         }
-        if let Some(new_tile) = self.tile_stack.pop() {
-            p.tiles_in_hand.push(new_tile);
+        let dead_players: Vec<usize> = self
+            .board
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, pos)| !pos.alive)
+            .map(|(idx, _)| idx)
+            .collect();
+        // Check for any newly-dead players.
+        let mut newly_dead = false;
+        let mut idx = 0;
+        while idx < self.players.len() {
+            if dead_players.contains(&self.players[idx].board_index) {
+                newly_dead = true;
+                // Remove this player from the active list.
+                let mut dead = self.players.remove(idx);
+                // Return tiles to the stack.
+                self.tile_stack.append(&mut dead.tiles_in_hand);
+            } else {
+                idx += 1;
+            }
         }
-        self.current_player_idx += 1;
-        self.current_player_idx %= self.players.len();
-        false
+        // Allocate tiles from the tile stack.
+        // TODO: use the actual game logic here, this is a hack.
+        for p in self.players.iter_mut() {
+            if p.tiles_in_hand.len() < 3 {
+                if let Some(new_tile) = self.tile_stack.pop() {
+                    p.tiles_in_hand.push(new_tile);
+                } else {
+                    break;
+                }
+            }
+        }
+        // Update the current player index.
+        if newly_dead {
+            if let Some(idx) =
+                self.players.iter().position(|p| p.board_index > bidx)
+            {
+                self.current_player_idx = idx;
+            } else {
+                self.current_player_idx = 0;
+            }
+        } else {
+            self.current_player_idx += 1;
+            self.current_player_idx %= self.players.len();
+        }
+        self.players.len()
     }
     pub fn rotate_tile(&mut self, player_idx: usize, tile_idx: usize) {
         let p = &mut self.players[player_idx];
