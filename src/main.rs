@@ -26,15 +26,6 @@ async fn main() {
         },
     )
     .unwrap();
-    gm.rotate_tile(0, 0);
-    let fake_json = serde_json::to_string(&manager::PlayerMove {
-        tile_index: 0,
-        row: 2,
-        col: 5,
-    })
-    .unwrap();
-    gm.take_turn(&serde_json::from_str(&fake_json).unwrap())
-        .unwrap();
     // End demo code ------------------------------------------------
 
     let db: Database = Arc::new(Mutex::new(gm));
@@ -43,11 +34,31 @@ async fn main() {
     let files = warp::path("static").and(warp::fs::dir("./static/"));
 
     // GET /board => JSON
+    let db1 = db.clone();
     let board = warp::path!("board")
-        .map(move || db.clone())
+        .map(move || db1.clone())
         .and_then(get_board_json);
 
-    let routes = warp::get().and(index.or(files).or(board));
+    // GET /hand => JSON
+    let db2 = db.clone();
+    let hand = warp::path!("hand")
+        .map(move || db2.clone())
+        .and_then(get_hand_json);
+
+    // POST /play/$tile_idx => OK
+    let db3 = db.clone();
+    let play = warp::path!("play" / usize)
+        .and(warp::any().map(move || db3.clone()))
+        .and_then(play_tile);
+
+    // POST /rotate/$player_idx/$tile_idx => OK
+    let rotate = warp::path!("rotate" / usize / usize)
+        .and(warp::any().map(move || db.clone()))
+        .and_then(rotate_tile);
+
+    let gets = warp::get().and(index.or(files).or(board).or(hand));
+    let posts = warp::post().and(play.or(rotate));
+    let routes = gets.or(posts);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
@@ -57,4 +68,29 @@ async fn get_board_json(
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
     let gm = db.lock().await;
     Ok(warp::reply::json(&gm.board))
+}
+
+async fn get_hand_json(
+    db: Database,
+) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let gm = db.lock().await;
+    Ok(warp::reply::json(gm.current_player()))
+}
+
+async fn play_tile(
+    idx: usize,
+    db: Database,
+) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let mut gm = db.lock().await;
+    Ok(if gm.take_turn(idx) { "Game Over" } else { "OK" })
+}
+
+async fn rotate_tile(
+    player_idx: usize,
+    tile_idx: usize,
+    db: Database,
+) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let mut gm = db.lock().await;
+    gm.rotate_tile(player_idx, tile_idx);
+    Ok("OK")
 }

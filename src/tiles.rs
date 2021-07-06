@@ -52,7 +52,7 @@ pub enum Port {
 }
 
 impl Port {
-    fn turn_left(&self) -> Self {
+    fn turn_right(&self) -> Self {
         match self {
             Port::A => Port::C,
             Port::B => Port::D,
@@ -64,7 +64,7 @@ impl Port {
             Port::H => Port::B,
         }
     }
-    fn turn_right(&self) -> Self {
+    fn turn_left(&self) -> Self {
         match self {
             Port::A => Port::G,
             Port::B => Port::H,
@@ -105,14 +105,13 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn rotate_left(mut self) -> Self {
+    pub fn rotate_left(&mut self) {
         self.facing = self.facing.turn_left();
-        self
     }
     fn normalize_port(&self, p: Port) -> Port {
         match self.facing {
             Direction::North => p,
-            Direction::South => p.flip(),
+            Direction::South => p.turn_left().turn_left(),
             Direction::East => p.turn_left(),
             Direction::West => p.turn_right(),
         }
@@ -120,7 +119,7 @@ impl Tile {
     fn unnormalize_port(&self, p: Port) -> Port {
         match self.facing {
             Direction::North => p,
-            Direction::South => p.flip(),
+            Direction::South => p.turn_left().turn_left(),
             Direction::East => p.turn_right(),
             Direction::West => p.turn_left(),
         }
@@ -180,7 +179,7 @@ pub fn all_tiles() -> Vec<Tile> {
             layout: [
                 (Port::A, Port::H),
                 (Port::B, Port::C),
-                (Port::D, Port::H),
+                (Port::D, Port::E),
                 (Port::F, Port::G),
             ],
             facing: Direction::North,

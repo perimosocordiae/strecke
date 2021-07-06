@@ -20,8 +20,13 @@ impl Position {
             Port::G | Port::H => self.col == 6,
         }
     }
-    fn is_valid_direction(&self, dir: Direction) -> bool {
-        self.port.facing_side() == dir
+    fn next_tile_position(&self) -> (i8, i8) {
+        match self.port.facing_side() {
+            Direction::North => (self.row - 1, self.col),
+            Direction::South => (self.row + 1, self.col),
+            Direction::East => (self.row, self.col + 1),
+            Direction::West => (self.row, self.col - 1),
+        }
     }
     fn update(&mut self, r: i8, c: i8, tile: &Tile) {
         self.row = r;
@@ -38,16 +43,6 @@ fn test_is_valid_start() {
         port: Port::E
     }
     .is_valid_start());
-}
-
-#[test]
-fn test_is_valid_direction() {
-    assert!(Position {
-        row: 5,
-        col: 2,
-        port: Port::C
-    }
-    .is_valid_direction(Direction::East));
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -70,26 +65,11 @@ impl Board {
         self.players.push(pos);
         Ok(self.players.len() - 1)
     }
-    pub fn play_tile(
-        &mut self,
-        player_idx: usize,
-        tile: &Tile,
-        row: usize,
-        col: usize,
-    ) -> Result<bool, String> {
+    pub fn play_tile(&mut self, player_idx: usize, tile: &Tile) -> bool {
         let pos = &mut self.players[player_idx];
-        if row >= 6 || col >= 6 {
-            return Err(format!("Invalid tile location: ({}, {})", row, col));
-        }
-        let side = adjacent_side(pos.row, pos.col, row as i8, col as i8)?;
-        if !pos.is_valid_direction(side) {
-            return Err(format!(
-                "Invalid tile placement: ({}, {}) does not connect to player's route",
-                row, col
-            ));
-        }
-        pos.update(row as i8, col as i8, &tile);
-        self.grid[row][col] = Some(*tile);
+        let (row, col) = pos.next_tile_position();
+        pos.update(row, col, &tile);
+        self.grid[row as usize][col as usize] = Some(*tile);
         // TODO: return a sequence of positions
         loop {
             let (d_row, d_col) = pos.port.facing_side().grid_offsets();
@@ -99,33 +79,15 @@ impl Board {
                 pos.row = r;
                 pos.col = c;
                 pos.port = pos.port.flip();
-                return Ok(true); // Game over for this player.
+                return true; // Game over for this player.
             }
             match self.grid[r as usize][c as usize] {
                 // Hit another tile, traverse and keep looping.
                 Some(t) => pos.update(r, c, &t),
                 // Hit a blank cell, stop.
-                None => return Ok(false),
+                None => return false,
             }
         }
-    }
-}
-
-fn adjacent_side(
-    src_row: i8,
-    src_col: i8,
-    dst_row: i8,
-    dst_col: i8,
-) -> Result<Direction, String> {
-    match (dst_row - src_row, dst_col - src_col) {
-        (0, -1) => Ok(Direction::West),
-        (0, 1) => Ok(Direction::East),
-        (-1, 0) => Ok(Direction::North),
-        (1, 0) => Ok(Direction::South),
-        _ => Err(format!(
-            "Invalid tile placement: ({}, {}) is not adjacent to ({}, {})",
-            dst_row, dst_col, src_row, src_col
-        )),
     }
 }
 
