@@ -2,6 +2,7 @@ mod board;
 mod manager;
 mod tiles;
 
+use rusqlite::Connection;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
@@ -12,6 +13,16 @@ type Database = Arc<Mutex<manager::GameManager>>;
 async fn main() {
     // Run with RUST_LOG=info to see log messages.
     pretty_env_logger::init();
+
+    let conn = Connection::open("strecke.db").unwrap();
+    conn.execute(
+        "create table if not exists players (
+             id integer primary key,
+             username text not null unique
+         )",
+        [],
+    )
+    .unwrap();
 
     let mut rng = rand::thread_rng();
     let mut gm = manager::GameManager::new(&mut rng);

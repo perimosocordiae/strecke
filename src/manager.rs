@@ -4,6 +4,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::cmp;
 
+// How large each player's "hand" can be.
 const TILES_PER_PLAYER: i32 = 3;
 
 #[derive(Debug, Deserialize, Serialize)]

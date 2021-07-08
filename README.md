@@ -4,22 +4,22 @@ Game details:
 
  - 6x6 board, with 35 total tiles (one space always empty)
  - tiles have 2 ports/side, for 8 ports total
- - may just want to enumerate all types of tiles:
+ - we can enumerate all types of tiles:
    - see https://felleisen.org/matthias/4500-f19/tiles.html
  - 3 rotations per tile
- - 2-8 players
+ - 2+ players
  - player tokens start on the edge of the board
  - play must advance your own token
+ - last player standing wins
 
-Core Design:
+TODO list:
 
- - board + tile + token representations
- - placement evaluator (check for legality + resolve motions)
- - game state manager (track turns, tile availability, game end)
+ - database of players and games
+ - landing page, login page, lobby page, stats page
  - AI agents
-
-UI Design:
-
- - web UI for game state display (from JSON repr)
- - game config + start + play UX
+ - nicer SVG for tiles
+ - animations for player moves
+ - colored player trails
+ - drag/drop controls for playing tiles (tap to rotate)
+ - tile preview on hover/touch
 
