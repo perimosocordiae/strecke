@@ -161,7 +161,21 @@ const PORT_LOCATIONS = {
 function pathCode(src, dst) {
   const [x0, y0] = PORT_LOCATIONS[src];
   const [x1, y1] = PORT_LOCATIONS[dst];
-  return `M${x0} ${y0} Q50 50 ${x1} ${y1} `;
+  const [cx0, cy0] = controlPoint(x0, y0);
+  const [cx1, cy1] = controlPoint(x1, y1);
+  return `M${x0} ${y0} C${cx0} ${cy0}, ${cx1} ${cy1}, ${x1} ${y1} `;
+}
+
+function controlPoint(x, y) {
+  if (x == 0) {
+    return [33, y];
+  } else if (x == 100) {
+    return [66, y];
+  } else if (y == 0) {
+    return [x, 33];
+  } else {
+    return [x, 66];
+  }
 }
 
 function makePath(code) {

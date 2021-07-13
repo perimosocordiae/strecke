@@ -17,7 +17,6 @@ TODO list:
  - database of players and games
  - landing page, login page, lobby page, stats page
  - AI agents
- - nicer SVG for tiles
  - animations for player moves
  - colored player trails
  - drag/drop controls for playing tiles (tap to rotate)
