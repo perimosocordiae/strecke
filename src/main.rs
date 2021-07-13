@@ -1,56 +1,21 @@
 mod board;
-mod manager;
+mod game;
 mod tiles;
+mod webapp;
 
-use rusqlite::Connection;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
 
-type Database = Arc<Mutex<manager::GameManager>>;
+type Database = Arc<Mutex<webapp::AppState>>;
 
 #[tokio::main]
 async fn main() {
     // Run with RUST_LOG=info to see log messages.
     pretty_env_logger::init();
 
-    let conn = Connection::open("strecke.db").unwrap();
-    conn.execute(
-        "create table if not exists players (
-             id integer primary key,
-             username text not null unique
-         )",
-        [],
-    )
-    .unwrap();
-
-    let mut rng = rand::thread_rng();
-    let mut gm = manager::GameManager::new(&mut rng);
-
-    // Start demo code to exercise the game logic--------------------
-    gm.register_player(
-        "CJ",
-        board::Position {
-            row: 2,
-            col: 6,
-            port: tiles::Port::G,
-            alive: true,
-        },
-    )
-    .unwrap();
-    gm.register_player(
-        "Bob",
-        board::Position {
-            row: -1,
-            col: 3,
-            port: tiles::Port::E,
-            alive: true,
-        },
-    )
-    .unwrap();
-    // End demo code ------------------------------------------------
-
-    let db: Database = Arc::new(Mutex::new(gm));
+    let db: Database =
+        Arc::new(Mutex::new(webapp::AppState::new("strecke.db").unwrap()));
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
     let files = warp::path("static").and(warp::fs::dir("./static/"));
@@ -88,23 +53,23 @@ async fn main() {
 async fn get_board_json(
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let gm = db.lock().await;
-    Ok(warp::reply::json(&gm.board))
+    let app = db.lock().await;
+    Ok(warp::reply::json(&app.gm.board))
 }
 
 async fn get_hand_json(
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let gm = db.lock().await;
-    Ok(warp::reply::json(gm.current_player()))
+    let app = db.lock().await;
+    Ok(warp::reply::json(app.gm.current_player()))
 }
 
 async fn play_tile(
     idx: usize,
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let mut gm = db.lock().await;
-    Ok(match gm.take_turn(idx) {
+    let mut app = db.lock().await;
+    Ok(match app.gm.take_turn(idx) {
         0 => "Everyone loses",
         1 => "Somebody won",
         _ => "OK",
@@ -116,7 +81,7 @@ async fn rotate_tile(
     tile_idx: usize,
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let mut gm = db.lock().await;
-    gm.rotate_tile(player_idx, tile_idx);
+    let mut app = db.lock().await;
+    app.gm.rotate_tile(player_idx, tile_idx);
     Ok("OK")
 }
