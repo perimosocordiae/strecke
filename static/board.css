@@ -35,10 +35,18 @@
   background-color: rgb(243, 178, 12);
   grid-column: span 2;
 }
+.hand .tile svg {
+  transition-duration: 0.5s;
+  transition-property: transform;
+}
 
 .choice {
   display: grid;
   grid-template-columns: 1fr 1fr;
+}
+
+.choice .tile:hover {
+ box-shadow: 0 0 5px;
 }
 
 .East {

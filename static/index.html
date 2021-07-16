@@ -2,15 +2,36 @@
 <html lang="en">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Strecke</title>
+<link rel="icon" href="/static/favicon.svg">
 <link rel="stylesheet" type="text/css" href="/static/board.css">
 <script src="/static/board.js"></script>
+<style type="text/css">
+#logo {
+  display: grid;
+  width: 45em;
+  grid-template-columns: repeat(7, 1fr);
+  grid-gap:  0.5em;
+  height: 6em;
+  margin: 0 auto;
+}
+</style>
+<div id="logo"></div>
+<p><a href="/game">Start a Game</a></p>
 
-<body onload="bodyLoaded();">
-  <h1 class="title">Strecke</h1>
-  <div class="board"></div>
-  <h2 class="subtitle">Your Tiles</h2>
-  <div class="hand"></div>
-  <p>
-    <a href="/board">Board in JSON representation</a>
-  </p>
-</body>
+<script type="text/javascript">
+const LETTERS = {
+  s: [['A', 'E']],
+  t: [['A', 'F'], ['H', 'C']],
+  r: [['H', 'E'], ['H', 'B']],
+  e: [['G', 'H'], ['H', 'B'], ['G', 'E']],
+  c: [['C', 'H'], ['H', 'D']],
+  k: [['H', 'E'], ['G', 'B'], ['A', 'F']],
+}
+let logo = document.getElementById('logo');
+for (let letter of 'strecke') {
+  let s = document.createElement('div');
+  s.classList.add('tile');
+  s.appendChild(renderTile({facing: 'North', layout: LETTERS[letter]}));
+  logo.appendChild(s);
+}
+</script>

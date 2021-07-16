@@ -18,6 +18,7 @@ async fn main() {
         Arc::new(Mutex::new(webapp::AppState::new("strecke.db").unwrap()));
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
+    let game = warp::path("game").and(warp::fs::file("./static/game.html"));
     let files = warp::path("static").and(warp::fs::dir("./static/"));
 
     // GET /board => JSON
@@ -43,7 +44,7 @@ async fn main() {
         .and(warp::any().map(move || db.clone()))
         .and_then(rotate_tile);
 
-    let gets = warp::get().and(index.or(files).or(board).or(hand));
+    let gets = warp::get().and(index.or(game).or(files).or(board).or(hand));
     let posts = warp::post().and(play.or(rotate));
     let routes = gets.or(posts);
 

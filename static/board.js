@@ -1,3 +1,5 @@
+'use strict';
+let playerPositions = [];
 
 function bodyLoaded() {
   fetchJson('/board', renderBoard);
@@ -39,16 +41,33 @@ function rotateTile(playerIdx, tileIdx) {
 }
 
 function renderHand(hand) {
+  // Hack to ensure renderBoard ran first on pageload.
+  if (!playerPositions[hand.board_index]) {
+    setTimeout(() => renderHand(hand), 10);
+    return;
+  }
   let subtitle = document.getElementsByClassName('subtitle')[0];
-  subtitle.innerText = `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
+  subtitle.innerText =
+      `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
   let handContainer = document.getElementsByClassName('hand')[0];
+  // TODO: write this to update in-place, to allow rotation transitions
   handContainer.innerHTML = '';
+  let [row, col] = playerPositions[hand.board_index];
+  let targetTile = document.querySelector(`.board > .r${row}.c${col}`);
+  // document.styleSheets[0].rules[0].style
   for (let idx = 0; idx < hand.tiles_in_hand.length; ++idx) {
     let wrap = document.createElement('div');
     wrap.classList.add('choice');
     let elt = document.createElement('div');
     elt.classList.add('tile', `h${idx}`);
-    elt.appendChild(renderTile(hand.tiles_in_hand[idx]));
+    let svg = renderTile(hand.tiles_in_hand[idx]);
+    elt.appendChild(svg);
+    elt.onmouseenter = () => {
+      targetTile.innerHTML = '';
+      targetTile.appendChild(svg.cloneNode(true));
+    };
+    elt.onmouseleave = () => { targetTile.innerHTML = ''; };
+    elt.onclick = () => rotateTile(hand.board_index, idx);
     wrap.appendChild(elt);
     let rotBtn = document.createElement('button');
     rotBtn.innerText = 'Rotate';
@@ -62,9 +81,7 @@ function renderHand(hand) {
   }
 }
 
-const PLAYER_COLORS = [
-  'red', 'blue', 'green', 'purple', 'magenta'
-];
+const PLAYER_COLORS = [ 'red', 'blue', 'green', 'purple', 'magenta' ];
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
@@ -107,8 +124,9 @@ function renderBoard(board) {
   }
   boardContainer.appendChild(document.createElement('div'));
   for (const [idx, player] of board.players.entries()) {
+    playerPositions[idx] = nextPosition(player);
     const [x, y] = PORT_LOCATIONS[player.port];
-    let tile = boardContainer.querySelector(`.board > .r${player.row}.c${player.col}`);
+    let tile = boardContainer.querySelector(`.r${player.row}.c${player.col}`);
     let token = document.createElement('div');
     token.classList.add('token');
     token.style.backgroundColor = PLAYER_COLORS[idx];
@@ -118,9 +136,20 @@ function renderBoard(board) {
   }
 }
 
+function nextPosition(player) {
+  if ('AB'.includes(player.port)) {
+    return [ player.row - 1, player.col ];
+  } else if ('CD'.includes(player.port)) {
+    return [ player.row, player.col + 1 ];
+  } else if ('EF'.includes(player.port)) {
+    return [ player.row + 1, player.col ];
+  }
+  return [ player.row, player.col - 1 ];
+}
+
 function renderTile(tile) {
   let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('viewBox', '0 0 99 99');
   svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   svg.classList.add(tile.facing);
   let code = '';
@@ -133,7 +162,7 @@ function renderTile(tile) {
 
 function makeBorder(p0, p1) {
   let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('viewBox', '0 0 99 99');
   svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   const [x0, y0] = PORT_LOCATIONS[p0];
   const [x1, y1] = PORT_LOCATIONS[p1];
@@ -141,7 +170,7 @@ function makeBorder(p0, p1) {
   let code;
   if (x0 == 0) {
     code = `M${x0} ${y0} h10 M${x1} ${y1} h10`;
-  } else if (x0 == 100) {
+  } else if (x0 == 99) {
     code = `M${x0} ${y0} h-10 M${x1} ${y1} h-10`;
   } else if (y0 == 0) {
     code = `M${x0} ${y0} v10 M${x1} ${y1} v10`;
@@ -150,12 +179,17 @@ function makeBorder(p0, p1) {
   }
   svg.appendChild(makePath(code));
   return svg;
-
 }
 
 const PORT_LOCATIONS = {
-  A: [33, 0], B: [66, 0], C: [100, 33], D: [100, 66],
-  E: [66, 100], F: [33, 100], G: [0, 66], H: [0, 33],
+  A : [ 33, 0 ],
+  B : [ 66, 0 ],
+  C : [ 99, 33 ],
+  D : [ 99, 66 ],
+  E : [ 66, 99 ],
+  F : [ 33, 99 ],
+  G : [ 0, 66 ],
+  H : [ 0, 33 ],
 };
 
 function pathCode(src, dst) {
@@ -163,18 +197,18 @@ function pathCode(src, dst) {
   const [x1, y1] = PORT_LOCATIONS[dst];
   const [cx0, cy0] = controlPoint(x0, y0);
   const [cx1, cy1] = controlPoint(x1, y1);
-  return `M${x0} ${y0} C${cx0} ${cy0}, ${cx1} ${cy1}, ${x1} ${y1} `;
+  return `M${x0} ${y0} C${cx0} ${cy0} ${cx1} ${cy1} ${x1} ${y1}`;
 }
 
 function controlPoint(x, y) {
   if (x == 0) {
-    return [33, y];
-  } else if (x == 100) {
-    return [66, y];
+    return [ 33, y ];
+  } else if (x == 99) {
+    return [ 66, y ];
   } else if (y == 0) {
-    return [x, 33];
+    return [ x, 33 ];
   } else {
-    return [x, 66];
+    return [ x, 66 ];
   }
 }
 
