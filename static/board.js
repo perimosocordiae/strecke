@@ -14,13 +14,15 @@ function playTile(idx) {
     if (xhr.status != 200) {
       console.error('Got', xhr.status, xhr.response);
     } else {
-      fetchJson('/board', renderBoard);
-      if (xhr.responseText != "OK") {
-        document.getElementsByClassName('hand')[0].innerHTML = '';
-        alert(xhr.responseText);
-      } else {
-        fetchJson('/hand', renderHand);
-      }
+      fetchJson('/board', (board) => {
+        renderBoard(board);
+        if (xhr.responseText != "OK") {
+          document.getElementsByClassName('hand')[0].innerHTML = '';
+          alert(xhr.responseText);
+        } else {
+          fetchJson('/hand', renderHand);
+        }
+      });
     }
   };
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
@@ -49,35 +51,47 @@ function renderHand(hand) {
   let subtitle = document.getElementsByClassName('subtitle')[0];
   subtitle.innerText =
       `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
-  let handContainer = document.getElementsByClassName('hand')[0];
-  // TODO: write this to update in-place, to allow rotation transitions
-  handContainer.innerHTML = '';
   let [row, col] = playerPositions[hand.board_index];
-  let targetTile = document.querySelector(`.board > .r${row}.c${col}`);
-  // document.styleSheets[0].rules[0].style
-  for (let idx = 0; idx < hand.tiles_in_hand.length; ++idx) {
-    let wrap = document.createElement('div');
-    wrap.classList.add('choice');
-    let elt = document.createElement('div');
-    elt.classList.add('tile', `h${idx}`);
-    let svg = renderTile(hand.tiles_in_hand[idx]);
-    elt.appendChild(svg);
-    elt.onmouseenter = () => {
+  let handContainer = document.getElementsByClassName('hand')[0];
+  const handSize = hand.tiles_in_hand.length;
+  for (let idx = 0; idx < handSize; ++idx) {
+    let wrap, elt, svg, rotBtn;
+    if (idx < handContainer.children.length) {
+      wrap = handContainer.children[idx];
+      elt = wrap.firstChild;
+      svg = elt.firstChild;
+      renderTile(hand.tiles_in_hand[idx], svg);
+      rotBtn = wrap.children[1];
+    } else {
+      wrap = document.createElement('div');
+      wrap.classList.add('choice');
+      elt = document.createElement('div');
+      elt.classList.add('tile', `h${idx}`);
+      svg = renderTile(hand.tiles_in_hand[idx]);
+      elt.appendChild(svg);
+      wrap.appendChild(elt);
+      rotBtn = document.createElement('button');
+      rotBtn.innerText = 'Rotate';
+      wrap.appendChild(rotBtn);
+      let playBtn = document.createElement('button');
+      playBtn.innerText = 'Play';
+      playBtn.onclick = () => playTile(idx);
+      wrap.appendChild(playBtn);
+      handContainer.appendChild(wrap);
+    }
+    elt.onclick = () => rotateTile(hand.board_index, idx);
+    rotBtn.onclick = () => rotateTile(hand.board_index, idx);
+    wrap.onmouseenter = () => {
+      let targetTile = document.querySelector(`.board > .r${row}.c${col}`);
       targetTile.innerHTML = '';
       targetTile.appendChild(svg.cloneNode(true));
     };
-    elt.onmouseleave = () => { targetTile.innerHTML = ''; };
-    elt.onclick = () => rotateTile(hand.board_index, idx);
-    wrap.appendChild(elt);
-    let rotBtn = document.createElement('button');
-    rotBtn.innerText = 'Rotate';
-    rotBtn.onclick = () => rotateTile(hand.board_index, idx);
-    wrap.appendChild(rotBtn);
-    let playBtn = document.createElement('button');
-    playBtn.innerText = 'Play';
-    playBtn.onclick = () => playTile(idx);
-    wrap.appendChild(playBtn);
-    handContainer.appendChild(wrap);
+    wrap.onmouseleave = () => {
+      document.querySelector(`.board > .r${row}.c${col}`).innerHTML = '';
+    };
+  }
+  while (handContainer.children.length > handSize) {
+    handContainer.removeChild(handContainer.lastChild);
   }
 }
 
@@ -85,44 +99,62 @@ const PLAYER_COLORS = [ 'red', 'blue', 'green', 'purple', 'magenta' ];
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
-  boardContainer.innerHTML = '';
-  boardContainer.appendChild(document.createElement('div'));
-  for (let col = 0; col < 6; ++col) {
-    let pad = document.createElement('div');
-    pad.classList.add('pad', 'r-1', `c${col}`);
-    pad.appendChild(makeBorder('E', 'F'));
-    boardContainer.appendChild(pad);
-  }
-  boardContainer.appendChild(document.createElement('div'));
-  for (let row = 0; row < board.grid.length; ++row) {
-    let pad = document.createElement('div');
-    pad.classList.add('pad', `r${row}`, 'c-1');
-    pad.appendChild(makeBorder('C', 'D'));
-    boardContainer.appendChild(pad);
-    const gridRow = board.grid[row];
-    for (let col = 0; col < gridRow.length; ++col) {
-      let elt = document.createElement('div');
-      elt.classList.add('tile', `r${row}`, `c${col}`);
-      let tile = gridRow[col];
-      if (tile) {
-        elt.classList.add('played');
-        elt.appendChild(renderTile(tile));
-      }
-      boardContainer.appendChild(elt);
+  if (boardContainer.children.length == 0) {
+    boardContainer.appendChild(document.createElement('div'));
+    for (let col = 0; col < 6; ++col) {
+      let pad = document.createElement('div');
+      pad.classList.add('pad', 'r-1', `c${col}`);
+      pad.appendChild(makeBorder('E', 'F'));
+      boardContainer.appendChild(pad);
     }
-    pad = document.createElement('div');
-    pad.classList.add('pad', `r${row}`, 'c6');
-    pad.appendChild(makeBorder('G', 'H'));
-    boardContainer.appendChild(pad);
+    boardContainer.appendChild(document.createElement('div'));
+    for (let row = 0; row < board.grid.length; ++row) {
+      let pad = document.createElement('div');
+      pad.classList.add('pad', `r${row}`, 'c-1');
+      pad.appendChild(makeBorder('C', 'D'));
+      boardContainer.appendChild(pad);
+      const gridRow = board.grid[row];
+      for (let col = 0; col < gridRow.length; ++col) {
+        let elt = document.createElement('div');
+        elt.classList.add('tile', `r${row}`, `c${col}`);
+        let tile = gridRow[col];
+        if (tile) {
+          elt.classList.add('played');
+          elt.appendChild(renderTile(tile));
+        }
+        boardContainer.appendChild(elt);
+      }
+      pad = document.createElement('div');
+      pad.classList.add('pad', `r${row}`, 'c6');
+      pad.appendChild(makeBorder('G', 'H'));
+      boardContainer.appendChild(pad);
+    }
+    boardContainer.appendChild(document.createElement('div'));
+    for (let col = 0; col < 6; ++col) {
+      let pad = document.createElement('div');
+      pad.classList.add('pad', 'r6', `c${col}`);
+      pad.appendChild(makeBorder('A', 'B'));
+      boardContainer.appendChild(pad);
+    }
+    boardContainer.appendChild(document.createElement('div'));
+  } else {
+    for (let row = 0; row < board.grid.length; ++row) {
+      const gridRow = board.grid[row];
+      for (let col = 0; col < gridRow.length; ++col) {
+        let tile = gridRow[col];
+        let elt = boardContainer.querySelector(`.tile.r${row}.c${col}`);
+        while (elt.firstChild) {
+          elt.removeChild(elt.firstChild);
+        }
+        if (tile) {
+          elt.classList.add('played');
+          elt.appendChild(renderTile(tile));
+        } else {
+          elt.classList.remove('played');
+        }
+      }
+    }
   }
-  boardContainer.appendChild(document.createElement('div'));
-  for (let col = 0; col < 6; ++col) {
-    let pad = document.createElement('div');
-    pad.classList.add('pad', 'r6', `c${col}`);
-    pad.appendChild(makeBorder('A', 'B'));
-    boardContainer.appendChild(pad);
-  }
-  boardContainer.appendChild(document.createElement('div'));
   for (const [idx, player] of board.players.entries()) {
     playerPositions[idx] = nextPosition(player);
     const [x, y] = PORT_LOCATIONS[player.port];
@@ -147,11 +179,16 @@ function nextPosition(player) {
   return [ player.row, player.col - 1 ];
 }
 
-function renderTile(tile) {
-  let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 99 99');
-  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  svg.classList.add(tile.facing);
+function renderTile(tile, svg) {
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 99 99');
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.classList.add(tile.facing);
+  } else {
+    svg.classList.value = tile.facing;
+    svg.removeChild(svg.firstChild);
+  }
   let code = '';
   for (const [src, dst] of tile.layout) {
     code += pathCode(src, dst);
