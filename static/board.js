@@ -1,26 +1,28 @@
 'use strict';
 let playerPositions = [];
+let gameId = 0;
 
 function bodyLoaded() {
-  fetchJson('/board', renderBoard);
-  fetchJson('/hand', renderHand);
+  gameId = (new URL(window.location)).searchParams.get('id');
+  fetchJson(`/board/${gameId}`, renderBoard);
+  fetchJson(`/hand/${gameId}`, renderHand);
 }
 
-function playTile(idx) {
+function playTile(tileIdx) {
   let xhr = new XMLHttpRequest();
-  xhr.open('POST', `/play/${idx}`);
+  xhr.open('POST', `/play/${gameId}/${tileIdx}`);
   xhr.send();
   xhr.onload = () => {
     if (xhr.status != 200) {
       console.error('Got', xhr.status, xhr.response);
     } else {
-      fetchJson('/board', (board) => {
+      fetchJson(`/board/${gameId}`, (board) => {
         renderBoard(board);
         if (xhr.responseText != "OK") {
           document.getElementsByClassName('hand')[0].innerHTML = '';
           alert(xhr.responseText);
         } else {
-          fetchJson('/hand', renderHand);
+          fetchJson(`/hand/${gameId}`, renderHand);
         }
       });
     }
@@ -28,15 +30,15 @@ function playTile(idx) {
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
 }
 
-function rotateTile(playerIdx, tileIdx) {
+function rotateTile(tileIdx) {
   let xhr = new XMLHttpRequest();
-  xhr.open('POST', `/rotate/${playerIdx}/${tileIdx}`);
+  xhr.open('POST', `/rotate/${gameId}/${tileIdx}`);
   xhr.send();
   xhr.onload = () => {
     if (xhr.status != 200) {
       console.error('Got', xhr.status, xhr.response);
     } else {
-      fetchJson('/hand', renderHand);
+      fetchJson(`/hand/${gameId}`, renderHand);
     }
   };
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
@@ -50,28 +52,28 @@ function renderHand(hand) {
   }
   let subtitle = document.getElementsByClassName('subtitle')[0];
   subtitle.innerText =
-      `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
+    `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
   let [row, col] = playerPositions[hand.board_index];
   let handContainer = document.getElementsByClassName('hand')[0];
   const handSize = hand.tiles_in_hand.length;
   for (let idx = 0; idx < handSize; ++idx) {
-    let wrap, elt, svg, rotBtn;
+    let wrap, svg;
     if (idx < handContainer.children.length) {
       wrap = handContainer.children[idx];
-      elt = wrap.firstChild;
-      svg = elt.firstChild;
+      svg = wrap.firstChild.firstChild;
       renderTile(hand.tiles_in_hand[idx], svg);
-      rotBtn = wrap.children[1];
     } else {
       wrap = document.createElement('div');
       wrap.classList.add('choice');
-      elt = document.createElement('div');
+      let elt = document.createElement('div');
       elt.classList.add('tile', `h${idx}`);
       svg = renderTile(hand.tiles_in_hand[idx]);
       elt.appendChild(svg);
+      elt.onclick = () => rotateTile(idx);
       wrap.appendChild(elt);
-      rotBtn = document.createElement('button');
+      let rotBtn = document.createElement('button');
       rotBtn.innerText = 'Rotate';
+      rotBtn.onclick = () => rotateTile(idx);
       wrap.appendChild(rotBtn);
       let playBtn = document.createElement('button');
       playBtn.innerText = 'Play';
@@ -79,8 +81,6 @@ function renderHand(hand) {
       wrap.appendChild(playBtn);
       handContainer.appendChild(wrap);
     }
-    elt.onclick = () => rotateTile(hand.board_index, idx);
-    rotBtn.onclick = () => rotateTile(hand.board_index, idx);
     wrap.onmouseenter = () => {
       let targetTile = document.querySelector(`.board > .r${row}.c${col}`);
       targetTile.innerHTML = '';
@@ -95,7 +95,7 @@ function renderHand(hand) {
   }
 }
 
-const PLAYER_COLORS = [ 'red', 'blue', 'green', 'purple', 'magenta' ];
+const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
@@ -170,13 +170,13 @@ function renderBoard(board) {
 
 function nextPosition(player) {
   if ('AB'.includes(player.port)) {
-    return [ player.row - 1, player.col ];
+    return [player.row - 1, player.col];
   } else if ('CD'.includes(player.port)) {
-    return [ player.row, player.col + 1 ];
+    return [player.row, player.col + 1];
   } else if ('EF'.includes(player.port)) {
-    return [ player.row + 1, player.col ];
+    return [player.row + 1, player.col];
   }
-  return [ player.row, player.col - 1 ];
+  return [player.row, player.col - 1];
 }
 
 function renderTile(tile, svg) {
@@ -219,14 +219,14 @@ function makeBorder(p0, p1) {
 }
 
 const PORT_LOCATIONS = {
-  A : [ 33, 0 ],
-  B : [ 66, 0 ],
-  C : [ 99, 33 ],
-  D : [ 99, 66 ],
-  E : [ 66, 99 ],
-  F : [ 33, 99 ],
-  G : [ 0, 66 ],
-  H : [ 0, 33 ],
+  A: [33, 0],
+  B: [66, 0],
+  C: [99, 33],
+  D: [99, 66],
+  E: [66, 99],
+  F: [33, 99],
+  G: [0, 66],
+  H: [0, 33],
 };
 
 function pathCode(src, dst) {
@@ -239,13 +239,13 @@ function pathCode(src, dst) {
 
 function controlPoint(x, y) {
   if (x == 0) {
-    return [ 33, y ];
+    return [33, y];
   } else if (x == 99) {
-    return [ 66, y ];
+    return [66, y];
   } else if (y == 0) {
-    return [ x, 33 ];
+    return [x, 33];
   } else {
-    return [ x, 66 ];
+    return [x, 66];
   }
 }
 
@@ -277,6 +277,21 @@ function fetchJson(url, cb) {
       return;
     }
     cb(xhr.response);
+  };
+  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
+}
+
+function doLogin() {
+  let xhr = new XMLHttpRequest();
+  xhr.open('POST', '/login');
+  xhr.setRequestHeader('Content-type', 'application/json');
+  xhr.send(JSON.stringify({ username: 'CJ', password: 'abcd' }));
+  xhr.onload = () => {
+    if (xhr.status != 200) {
+      console.error('Got', xhr.status, xhr.response);
+    } else {
+      console.alert('Logged in');
+    }
   };
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
 }

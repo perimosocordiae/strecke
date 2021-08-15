@@ -6,32 +6,33 @@
 <link rel="stylesheet" type="text/css" href="/static/board.css">
 <script src="/static/board.js"></script>
 <style type="text/css">
-#logo {
-  display: grid;
-  width: 45em;
-  grid-template-columns: repeat(7, 1fr);
-  grid-gap:  0.5em;
-  height: 6em;
-  margin: 0 auto;
-}
+  #logo {
+    display: grid;
+    width: 45em;
+    grid-template-columns: repeat(7, 1fr);
+    grid-gap: 0.5em;
+    height: 6em;
+    margin: 0 auto;
+  }
 </style>
 <div id="logo"></div>
-<p><a href="/game">Start a Game</a></p>
+<p><button onclick=doLogin()>Login</button></p>
+<p><a href="/game?id=1">Start a Game</a></p>
 
 <script type="text/javascript">
-const LETTERS = {
-  s: [['A', 'E']],
-  t: [['A', 'F'], ['H', 'C']],
-  r: [['H', 'E'], ['H', 'B']],
-  e: [['G', 'H'], ['H', 'B'], ['G', 'E']],
-  c: [['C', 'H'], ['H', 'D']],
-  k: [['H', 'E'], ['G', 'B'], ['A', 'F']],
-}
-let logo = document.getElementById('logo');
-for (let letter of 'strecke') {
-  let s = document.createElement('div');
-  s.classList.add('tile');
-  s.appendChild(renderTile({facing: 'North', layout: LETTERS[letter]}));
-  logo.appendChild(s);
-}
+  const LETTERS = {
+    s: [['A', 'E']],
+    t: [['A', 'F'], ['H', 'C']],
+    r: [['H', 'E'], ['H', 'B']],
+    e: [['G', 'H'], ['H', 'B'], ['G', 'E']],
+    c: [['C', 'H'], ['H', 'D']],
+    k: [['H', 'E'], ['G', 'B'], ['A', 'F']],
+  }
+  let logo = document.getElementById('logo');
+  for (let letter of 'strecke') {
+    let s = document.createElement('div');
+    s.classList.add('tile');
+    s.appendChild(renderTile({ facing: 'North', layout: LETTERS[letter] }));
+    logo.appendChild(s);
+  }
 </script>
