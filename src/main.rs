@@ -59,10 +59,21 @@ async fn main() {
         .and_then(rotate_tile);
 
     let gets = warp::get().and(index.or(game).or(files).or(board).or(hand));
-    let posts = warp::post().and(play.or(rotate).or(login));
+    let posts = warp::post().and(play.or(rotate).or(login).or(register));
     let routes = gets.or(posts);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+}
+
+#[derive(Debug)]
+struct StreckeError {
+    msg: String,
+}
+impl warp::reject::Reject for StreckeError {}
+impl StreckeError {
+    fn make(msg: String) -> warp::Rejection {
+        warp::reject::custom(Self { msg })
+    }
 }
 
 async fn do_login(
@@ -70,19 +81,19 @@ async fn do_login(
     db: Database,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let app = db.lock().await;
-    Ok(match app.check_login(creds) {
+    match app.check_login(creds) {
         Ok(is_auth) => {
-            if is_auth {
+            Ok(if is_auth {
                 StatusCode::OK
             } else {
                 StatusCode::UNAUTHORIZED
-            }
+            })
         }
         Err(e) => {
             error!("Failed login: {:?}", e);
-            StatusCode::BAD_REQUEST
+            Err(StreckeError::make(format!("{:?}", e)))
         }
-    })
+    }
 }
 
 async fn do_register(
@@ -90,8 +101,13 @@ async fn do_register(
     db: Database,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut app = db.lock().await;
-    app.sign_up(creds).unwrap();
-    Ok("OK")
+    match app.sign_up(creds) {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(e) => {
+            error!("Failed to register: {:?}", e);
+            Err(StreckeError::make(format!("{:?}", e)))
+        }
+    }
 }
 
 async fn get_board_json(
@@ -116,6 +132,7 @@ async fn play_tile(
     db: Database,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
     let mut app = db.lock().await;
+    // TODO: when the result is zero, invalidate the game (and restart?)
     Ok(match app.mut_game(game_id).take_turn(idx) {
         0 => "Everyone loses",
         1 => "Somebody won",

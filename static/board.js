@@ -280,18 +280,3 @@ function fetchJson(url, cb) {
   };
   xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
 }
-
-function doLogin() {
-  let xhr = new XMLHttpRequest();
-  xhr.open('POST', '/login');
-  xhr.setRequestHeader('Content-type', 'application/json');
-  xhr.send(JSON.stringify({ username: 'CJ', password: 'abcd' }));
-  xhr.onload = () => {
-    if (xhr.status != 200) {
-      console.error('Got', xhr.status, xhr.response);
-    } else {
-      console.alert('Logged in');
-    }
-  };
-  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
-}

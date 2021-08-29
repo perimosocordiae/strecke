@@ -93,7 +93,7 @@ impl AppState {
 
     pub fn sign_up(&mut self, creds: UserCredentials) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO players (username, hashed_password) VALUES (?)",
+            "INSERT INTO players (username, hashed_password) VALUES (?, ?)",
             [&creds.username, &creds.password],
         )?;
         Ok(())
