@@ -1,27 +1,35 @@
 mod board;
 mod game;
+mod settings;
 mod tiles;
 mod webapp;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use warp::http::StatusCode;
+use warp::http::{header, Response, StatusCode};
 use warp::Filter;
 
+#[macro_use]
+extern crate lazy_static;
 #[macro_use]
 extern crate log;
 
 type Database = Arc<Mutex<webapp::AppState>>;
+
+lazy_static! {
+    static ref CONFIG: settings::Settings = settings::Settings::new().unwrap();
+}
 
 #[tokio::main]
 async fn main() {
     // Run with RUST_LOG=info to see log messages.
     pretty_env_logger::init();
 
-    let mut app = webapp::AppState::new("strecke.db").unwrap();
+    let mut app = webapp::AppState::new(&CONFIG.db.name).unwrap();
     let _game_id = app.new_game().unwrap(); // XXX demo code
     let db: Database = Arc::new(Mutex::new(app));
     let db_getter = warp::any().map(move || Arc::clone(&db));
+    let needs_cookie = warp::cookie(&CONFIG.cookie.name);
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
     let game = warp::path("game").and(warp::fs::file("./static/game.html"));
@@ -41,6 +49,7 @@ async fn main() {
     // GET /board/$game_id => JSON
     let board = warp::path!("board" / i64)
         .and(db_getter.clone())
+        .and(needs_cookie)
         .and_then(get_board_json);
 
     // GET /hand/$game_id => JSON
@@ -62,66 +71,87 @@ async fn main() {
     let posts = warp::post().and(play.or(rotate).or(login).or(register));
     let routes = gets.or(posts);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(routes)
+        .run(([0, 0, 0, 0], CONFIG.server.port))
+        .await;
 }
 
-#[derive(Debug)]
-struct StreckeError {
-    msg: String,
-}
-impl warp::reject::Reject for StreckeError {}
-impl StreckeError {
-    fn make(msg: String) -> warp::Rejection {
-        warp::reject::custom(Self { msg })
-    }
-}
+type WarpResult<T> = Result<T, std::convert::Infallible>;
 
 async fn do_login(
     creds: webapp::UserCredentials,
     db: Database,
-) -> Result<impl warp::Reply, warp::Rejection> {
+) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    match app.check_login(creds) {
-        Ok(is_auth) => {
-            Ok(if is_auth {
-                StatusCode::OK
-            } else {
-                StatusCode::UNAUTHORIZED
-            })
-        }
+    Ok(match app.check_login(creds, CONFIG.cookie.encoder()) {
+        Ok(access_token) => Response::builder()
+            .status(StatusCode::OK)
+            .header(
+                header::SET_COOKIE,
+                format!(
+                    "{}={}; HttpOnly; SameSite=Strict",
+                    CONFIG.cookie.name, access_token
+                ),
+            )
+            .body("Logged in".to_owned()),
         Err(e) => {
             error!("Failed login: {:?}", e);
-            Err(StreckeError::make(format!("{:?}", e)))
+            Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .body(e.to_string())
         }
-    }
+    })
 }
 
 async fn do_register(
     creds: webapp::UserCredentials,
     db: Database,
-) -> Result<impl warp::Reply, warp::Rejection> {
+) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    match app.sign_up(creds) {
-        Ok(_) => Ok(StatusCode::OK),
+    Ok(match app.sign_up(creds) {
+        Ok(_) => Response::builder()
+            .status(StatusCode::OK)
+            .body("Created user".to_owned()),
         Err(e) => {
             error!("Failed to register: {:?}", e);
-            Err(StreckeError::make(format!("{:?}", e)))
+            Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(e.to_string())
         }
-    }
+    })
 }
 
 async fn get_board_json(
     game_id: i64,
     db: Database,
-) -> Result<impl warp::Reply, std::convert::Infallible> {
+    auth_cookie: String,
+) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    Ok(warp::reply::json(&app.game(game_id).board))
+    // TODO: implement the decoding as a filter for easy reuse
+    Ok(
+        match webapp::decode_jwt(&auth_cookie, CONFIG.cookie.decoder()) {
+            Ok(username) => {
+                info!("Authorized user: {}", username);
+                warp::reply::with_status(
+                    warp::reply::json(&app.game(game_id).board),
+                    StatusCode::OK,
+                )
+            }
+            Err(e) => {
+                error!("JWT decode failed: {:?}", e);
+                warp::reply::with_status(
+                    warp::reply::json(&"error"),
+                    StatusCode::UNAUTHORIZED,
+                )
+            }
+        },
+    )
 }
 
 async fn get_hand_json(
     game_id: i64,
     db: Database,
-) -> Result<impl warp::Reply, std::convert::Infallible> {
+) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
     Ok(warp::reply::json(app.game(game_id).current_player()))
 }
@@ -130,7 +160,7 @@ async fn play_tile(
     game_id: i64,
     idx: usize,
     db: Database,
-) -> Result<impl warp::Reply, std::convert::Infallible> {
+) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
     // TODO: when the result is zero, invalidate the game (and restart?)
     Ok(match app.mut_game(game_id).take_turn(idx) {
@@ -144,7 +174,7 @@ async fn rotate_tile(
     game_id: i64,
     tile_idx: usize,
     db: Database,
-) -> Result<impl warp::Reply, std::convert::Infallible> {
+) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
     app.mut_game(game_id).rotate_tile(0, tile_idx);
     Ok("OK")

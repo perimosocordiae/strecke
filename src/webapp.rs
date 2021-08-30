@@ -1,9 +1,12 @@
 use crate::game::GameManager;
 use crate::{board, tiles};
+use argon2::{self, Config};
 use chrono::Utc;
-use rusqlite::{Connection, Result};
-use serde::Deserialize;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::error;
+use std::fmt;
 
 #[derive(Deserialize)]
 pub struct UserCredentials {
@@ -11,14 +14,33 @@ pub struct UserCredentials {
     password: String,
 }
 
+impl UserCredentials {
+    fn hash(&self) -> String {
+        let salt = rand::thread_rng().gen::<[u8; 32]>();
+        let config = Config::default();
+        argon2::hash_encoded(self.password.as_bytes(), &salt, &config).unwrap()
+    }
+}
+
 pub struct AppState {
     games: HashMap<i64, GameManager>,
-    conn: Connection,
+    conn: rusqlite::Connection,
 }
+
+type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+#[derive(Debug)]
+struct LoginError;
+impl fmt::Display for LoginError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid login")
+    }
+}
+impl error::Error for LoginError {}
 
 impl AppState {
     pub fn new(db_path: &str) -> Result<Self> {
-        let conn = Connection::open(db_path)?;
+        let conn = rusqlite::Connection::open(db_path)?;
         // Ensure DB tables exist.
         conn.execute(
             "CREATE TABLE IF NOT EXISTS players (
@@ -60,8 +82,7 @@ impl AppState {
                 port: tiles::Port::G,
                 alive: true,
             },
-        )
-        .unwrap();
+        )?;
         gm.register_player(
             "Bob",
             board::Position {
@@ -70,8 +91,7 @@ impl AppState {
                 port: tiles::Port::E,
                 alive: true,
             },
-        )
-        .unwrap();
+        )?;
         // End demo code ------------------------------------------------
         let now = Utc::now();
         self.conn.execute(
@@ -94,17 +114,73 @@ impl AppState {
     pub fn sign_up(&mut self, creds: UserCredentials) -> Result<()> {
         self.conn.execute(
             "INSERT INTO players (username, hashed_password) VALUES (?, ?)",
-            [&creds.username, &creds.password],
+            [&creds.username, &creds.hash()],
         )?;
         Ok(())
     }
 
-    pub fn check_login(&self, creds: UserCredentials) -> Result<bool> {
-        let db_pw: String = self.conn.query_row(
+    pub fn check_login(
+        &self,
+        creds: UserCredentials,
+        secret: &jsonwebtoken::EncodingKey,
+    ) -> Result<String> {
+        match self.conn.query_row(
             "SELECT hashed_password FROM players WHERE username = ?1",
             [&creds.username],
-            |row| row.get(0),
-        )?;
-        Ok(db_pw == creds.password)
+            |row| row.get::<usize, String>(0),
+        ) {
+            Ok(db_pw) => {
+                if argon2::verify_encoded(&creds.hash(), db_pw.as_bytes())? {
+                    Ok(create_jwt(&creds.username, secret)?)
+                } else {
+                    Err(LoginError.into())
+                }
+            }
+            Err(e) => {
+                match e {
+                    // Typical case when username doesn't exist.
+                    rusqlite::Error::QueryReturnedNoRows => {}
+                    // For any other error, log it.
+                    _ => {
+                        error!("Login query failure: {:?}", e);
+                    }
+                };
+                Err(LoginError.into())
+            }
+        }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct Claims {
+    sub: String,
+    exp: usize,
+}
+
+fn create_jwt(
+    username: &str,
+    secret: &jsonwebtoken::EncodingKey,
+) -> Result<String> {
+    let expiration = Utc::now()
+        .checked_add_signed(chrono::Duration::days(7))
+        .expect("valid timestamp")
+        .timestamp();
+    let claims = Claims {
+        sub: username.to_owned(),
+        exp: expiration as usize,
+    };
+    let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS512);
+    jsonwebtoken::encode(&header, &claims, secret).map_err(|e| e.into())
+}
+
+pub fn decode_jwt(
+    token: &str,
+    key: &jsonwebtoken::DecodingKey,
+) -> Result<String> {
+    let decoded = jsonwebtoken::decode::<Claims>(
+        token,
+        key,
+        &jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS512),
+    )?;
+    Ok(decoded.claims.sub)
 }

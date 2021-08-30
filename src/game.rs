@@ -109,4 +109,7 @@ impl GameManager {
     pub fn current_player(&self) -> &Player {
         &self.players[self.current_player_idx]
     }
+    // pub fn get_player(&self, player_name: &str) -> &Player {
+    //TODO
+    // }
 }

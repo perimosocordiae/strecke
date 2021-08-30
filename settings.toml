@@ -1,0 +1,9 @@
+[server]
+port = "3030"
+
+[cookie]
+name = "strecke-auth"
+secret = "XXX change me"
+
+[db]
+name = "strecke.db"

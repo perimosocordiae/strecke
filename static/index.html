@@ -15,12 +15,25 @@
     height: 6em;
     margin: 0 auto;
   }
+
+  .error {
+    color: red;
+    display: block;
+  }
+
+  input {
+    display: block;
+  }
 </style>
 <div id="logo"></div>
-<p><button onclick=doLogin()>Login</button> |
-   <button onclick=doRegister()>Register</button>
-</p>
-<p><a href="/game?id=1">Start a Game</a></p>
+<div id="notAuth">
+  <button onclick=startLogin()>Login</button> |
+  <button onclick=startRegister()>Register</button>
+  <div></div>
+</div>
+<div id="hasAuth" style="display: none;">
+  <a href="/game?id=1">Start a Game</a>
+</div>
 
 <script type="text/javascript">
   const LETTERS = {
