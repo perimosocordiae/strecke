@@ -29,7 +29,17 @@ async fn main() {
     let _game_id = app.new_game().unwrap(); // XXX demo code
     let db: Database = Arc::new(Mutex::new(app));
     let db_getter = warp::any().map(move || Arc::clone(&db));
-    let needs_cookie = warp::cookie(&CONFIG.cookie.name);
+    let needs_cookie = warp::cookie(&CONFIG.cookie.name).and_then(
+        move |token: String| async move {
+            match webapp::decode_jwt(&token, CONFIG.cookie.decoder()) {
+                Ok(username) => Ok(username),
+                Err(e) => {
+                    error!("JWT decode failed: {:?}", e);
+                    Err(warp::reject())
+                }
+            }
+        },
+    );
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
     let game = warp::path("game").and(warp::fs::file("./static/game.html"));
@@ -55,16 +65,19 @@ async fn main() {
     // GET /hand/$game_id => JSON
     let hand = warp::path!("hand" / i64)
         .and(db_getter.clone())
+        .and(needs_cookie)
         .and_then(get_hand_json);
 
     // POST /play/$game_id/$tile_idx => OK
     let play = warp::path!("play" / i64 / usize)
         .and(db_getter.clone())
+        .and(needs_cookie)
         .and_then(play_tile);
 
     // POST /rotate/$game_id/$tile_idx => OK
     let rotate = warp::path!("rotate" / i64 / usize)
         .and(db_getter.clone())
+        .and(needs_cookie)
         .and_then(rotate_tile);
 
     let gets = warp::get().and(index.or(game).or(files).or(board).or(hand));
@@ -124,44 +137,31 @@ async fn do_register(
 async fn get_board_json(
     game_id: i64,
     db: Database,
-    auth_cookie: String,
+    _username: String,
 ) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    // TODO: implement the decoding as a filter for easy reuse
-    Ok(
-        match webapp::decode_jwt(&auth_cookie, CONFIG.cookie.decoder()) {
-            Ok(username) => {
-                info!("Authorized user: {}", username);
-                warp::reply::with_status(
-                    warp::reply::json(&app.game(game_id).board),
-                    StatusCode::OK,
-                )
-            }
-            Err(e) => {
-                error!("JWT decode failed: {:?}", e);
-                warp::reply::with_status(
-                    warp::reply::json(&"error"),
-                    StatusCode::UNAUTHORIZED,
-                )
-            }
-        },
-    )
+    Ok(warp::reply::json(&app.game(game_id).board))
 }
 
 async fn get_hand_json(
     game_id: i64,
     db: Database,
+    username: String,
 ) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    Ok(warp::reply::json(app.game(game_id).current_player()))
+    Ok(warp::reply::json(app.game(game_id).get_player(&username)))
 }
 
 async fn play_tile(
     game_id: i64,
     idx: usize,
     db: Database,
+    username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
+    if app.game(game_id).current_player().username != username {
+        return Ok("not your turn");
+    }
     // TODO: when the result is zero, invalidate the game (and restart?)
     Ok(match app.mut_game(game_id).take_turn(idx) {
         0 => "Everyone loses",
@@ -174,8 +174,11 @@ async fn rotate_tile(
     game_id: i64,
     tile_idx: usize,
     db: Database,
+    username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    app.mut_game(game_id).rotate_tile(0, tile_idx);
+    app.mut_game(game_id)
+        .mut_player(&username)
+        .rotate_tile(tile_idx);
     Ok("OK")
 }

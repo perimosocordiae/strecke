@@ -9,9 +9,16 @@ const TILES_PER_PLAYER: i32 = 3;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Player {
-    username: String,
+    pub username: String,
     board_index: usize,
     tiles_in_hand: Vec<Tile>,
+}
+
+impl Player {
+    pub fn rotate_tile(&mut self, tile_idx: usize) {
+        let tile = &mut self.tiles_in_hand[tile_idx];
+        tile.rotate_left();
+    }
 }
 
 pub struct GameManager {
@@ -101,15 +108,21 @@ impl GameManager {
         }
         self.players.len()
     }
-    pub fn rotate_tile(&mut self, player_idx: usize, tile_idx: usize) {
-        let p = &mut self.players[player_idx];
-        let tile = &mut p.tiles_in_hand[tile_idx];
-        tile.rotate_left();
-    }
     pub fn current_player(&self) -> &Player {
         &self.players[self.current_player_idx]
     }
-    // pub fn get_player(&self, player_name: &str) -> &Player {
-    //TODO
-    // }
+    pub fn mut_player(&mut self, player_name: &str) -> &mut Player {
+        // TODO: return a Result
+        match self.players.iter_mut().find(|p| p.username == player_name) {
+            Some(p) => p,
+            _ => panic!("No player named {}", player_name),
+        }
+    }
+    pub fn get_player(&self, player_name: &str) -> &Player {
+        // TODO: return a Result
+        match self.players.iter().find(|&p| p.username == player_name) {
+            Some(p) => p,
+            _ => panic!("No player named {}", player_name),
+        }
+    }
 }
