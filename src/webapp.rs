@@ -11,15 +11,7 @@ use std::fmt;
 #[derive(Deserialize)]
 pub struct UserCredentials {
     username: String,
-    password: String,
-}
-
-impl UserCredentials {
-    fn hash(&self) -> String {
-        let salt = rand::thread_rng().gen::<[u8; 32]>();
-        let config = Config::default();
-        argon2::hash_encoded(self.password.as_bytes(), &salt, &config).unwrap()
-    }
+    password: Vec<u8>,
 }
 
 pub struct AppState {
@@ -125,9 +117,12 @@ impl AppState {
         creds: UserCredentials,
         secret: &jsonwebtoken::EncodingKey,
     ) -> Result<String> {
+        let salt = rand::thread_rng().gen::<[u8; 32]>();
+        let config = Config::default();
+        let hash = argon2::hash_encoded(&creds.password, &salt, &config)?;
         match self.conn.execute(
             "INSERT INTO players (username, hashed_password) VALUES (?, ?)",
-            [&creds.username, &creds.hash()],
+            [&creds.username, &hash],
         ) {
             Ok(_) => {
                 info!("New user signed up: {}", &creds.username);
@@ -151,7 +146,7 @@ impl AppState {
             |row| row.get::<usize, String>(0),
         ) {
             Ok(db_pw) => {
-                if argon2::verify_encoded(&db_pw, creds.password.as_bytes())? {
+                if argon2::verify_encoded(&db_pw, &creds.password)? {
                     info!("User logged in: {}", &creds.username);
                     Ok(create_jwt(&creds.username, secret)?)
                 } else {
