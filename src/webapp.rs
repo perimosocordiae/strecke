@@ -151,7 +151,7 @@ impl AppState {
             |row| row.get::<usize, String>(0),
         ) {
             Ok(db_pw) => {
-                if argon2::verify_encoded(&creds.hash(), db_pw.as_bytes())? {
+                if argon2::verify_encoded(&db_pw, creds.password.as_bytes())? {
                     info!("User logged in: {}", &creds.username);
                     Ok(create_jwt(&creds.username, secret)?)
                 } else {
