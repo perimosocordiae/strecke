@@ -3,6 +3,7 @@
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
   width: 90vw;
+  max-width: 50em;
   margin: 0 auto;
 }
 
@@ -30,7 +31,7 @@
 
 .hand .tile {
   width: 20vw;
-  max-width: 10em;
+  max-width: 9em;
   border-radius: 0.5em;
   background-color: rgb(243, 178, 12);
   grid-column: span 2;
