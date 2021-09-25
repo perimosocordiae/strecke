@@ -11,6 +11,7 @@ use std::fmt;
 #[derive(Deserialize)]
 pub struct UserCredentials {
     username: String,
+    #[serde(with = "serde_bytes")]
     password: Vec<u8>,
 }
 
@@ -71,12 +72,12 @@ impl AppState {
         })
     }
 
-    pub fn new_game(&mut self) -> Result<i64> {
+    pub fn new_game(&mut self, username: &str) -> Result<i64> {
         let mut rng = rand::thread_rng();
         let mut gm = GameManager::new(&mut rng);
         // Start demo code to exercise the game logic--------------------
         gm.register_player(
-            "CJ",
+            username,
             board::Position {
                 row: 2,
                 col: 6,

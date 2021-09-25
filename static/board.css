@@ -4,7 +4,7 @@
   grid-template-rows: repeat(8, 1fr);
   width: 90vw;
   max-width: 50em;
-  margin: 0 auto;
+  margin: -4vw auto 0;
 }
 
 .tile {
@@ -67,8 +67,11 @@
 .title {
   text-align: center;
   font-family: monospace;
-  padding-bottom: 0;
-  margin-bottom: -10vw;
+  z-index: 2;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 .subtitle {
   text-align: center;

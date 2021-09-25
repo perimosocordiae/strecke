@@ -9,39 +9,29 @@ function bodyLoaded() {
 }
 
 function playTile(tileIdx) {
-  let xhr = new XMLHttpRequest();
-  xhr.open('POST', `/play/${gameId}/${tileIdx}`);
-  xhr.send();
-  xhr.onload = () => {
-    if (xhr.status != 200) {
-      console.error('Got', xhr.status, xhr.response);
-    } else {
+  fetch(`/play/${gameId}/${tileIdx}`, {method : 'POST'}).then(response => {
+    if (response.ok) {
       fetchJson(`/board/${gameId}`, (board) => {
         renderBoard(board);
-        if (xhr.responseText != "OK") {
-          document.getElementsByClassName('hand')[0].innerHTML = '';
-          alert(xhr.responseText);
-        } else {
-          fetchJson(`/hand/${gameId}`, renderHand);
-        }
+        response.text().then(text => {
+          if (text != "OK") {
+            document.getElementsByClassName('hand')[0].innerHTML = '';
+            alert(text);
+          } else {
+            fetchJson(`/hand/${gameId}`, renderHand);
+          }
+        });
       });
     }
-  };
-  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
+  });
 }
 
 function rotateTile(tileIdx) {
-  let xhr = new XMLHttpRequest();
-  xhr.open('POST', `/rotate/${gameId}/${tileIdx}`);
-  xhr.send();
-  xhr.onload = () => {
-    if (xhr.status != 200) {
-      console.error('Got', xhr.status, xhr.response);
-    } else {
+  fetch(`/rotate/${gameId}/${tileIdx}`, {method : 'POST'}).then(response => {
+    if (response.ok) {
       fetchJson(`/hand/${gameId}`, renderHand);
     }
-  };
-  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
+  });
 }
 
 function renderHand(hand) {
@@ -52,7 +42,7 @@ function renderHand(hand) {
   }
   let subtitle = document.getElementsByClassName('subtitle')[0];
   subtitle.innerText =
-    `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
+      `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
   let [row, col] = playerPositions[hand.board_index];
   let handContainer = document.getElementsByClassName('hand')[0];
   const handSize = hand.tiles_in_hand.length;
@@ -95,7 +85,7 @@ function renderHand(hand) {
   }
 }
 
-const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
+const PLAYER_COLORS = [ 'red', 'blue', 'green', 'purple', 'magenta' ];
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
@@ -170,13 +160,13 @@ function renderBoard(board) {
 
 function nextPosition(player) {
   if ('AB'.includes(player.port)) {
-    return [player.row - 1, player.col];
+    return [ player.row - 1, player.col ];
   } else if ('CD'.includes(player.port)) {
-    return [player.row, player.col + 1];
+    return [ player.row, player.col + 1 ];
   } else if ('EF'.includes(player.port)) {
-    return [player.row + 1, player.col];
+    return [ player.row + 1, player.col ];
   }
-  return [player.row, player.col - 1];
+  return [ player.row, player.col - 1 ];
 }
 
 function renderTile(tile, svg) {
@@ -219,14 +209,14 @@ function makeBorder(p0, p1) {
 }
 
 const PORT_LOCATIONS = {
-  A: [33, 0],
-  B: [66, 0],
-  C: [99, 33],
-  D: [99, 66],
-  E: [66, 99],
-  F: [33, 99],
-  G: [0, 66],
-  H: [0, 33],
+  A : [ 33, 0 ],
+  B : [ 66, 0 ],
+  C : [ 99, 33 ],
+  D : [ 99, 66 ],
+  E : [ 66, 99 ],
+  F : [ 33, 99 ],
+  G : [ 0, 66 ],
+  H : [ 0, 33 ],
 };
 
 function pathCode(src, dst) {
@@ -239,13 +229,13 @@ function pathCode(src, dst) {
 
 function controlPoint(x, y) {
   if (x == 0) {
-    return [33, y];
+    return [ 33, y ];
   } else if (x == 99) {
-    return [66, y];
+    return [ 66, y ];
   } else if (y == 0) {
-    return [x, 33];
+    return [ x, 33 ];
   } else {
-    return [x, 66];
+    return [ x, 66 ];
   }
 }
 
@@ -267,16 +257,5 @@ function makeCircle(cx, cy, radius, fillColor) {
 }
 
 function fetchJson(url, cb) {
-  let xhr = new XMLHttpRequest();
-  xhr.open('GET', url);
-  xhr.responseType = 'json';
-  xhr.send();
-  xhr.onload = () => {
-    if (xhr.status != 200) {
-      console.error('Got', xhr.status, xhr.response);
-      return;
-    }
-    cb(xhr.response);
-  };
-  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
+  fetch(url).then(response => response.json()).then(cb);
 }

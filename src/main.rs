@@ -6,7 +6,7 @@ mod webapp;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use warp::http::{header, Response, StatusCode};
+use warp::http::{header, Response, StatusCode, Uri};
 use warp::Filter;
 
 #[macro_use]
@@ -25,8 +25,7 @@ async fn main() {
     // Run with RUST_LOG=info to see log messages.
     pretty_env_logger::init();
 
-    let mut app = webapp::AppState::new(&CONFIG.db.name).unwrap();
-    let _game_id = app.new_game().unwrap(); // XXX demo code
+    let app = webapp::AppState::new(&CONFIG.db.name).unwrap();
     let db: Database = Arc::new(Mutex::new(app));
     let db_getter = warp::any().map(move || Arc::clone(&db));
     let needs_cookie = warp::cookie(&CONFIG.cookie.name).and_then(
@@ -43,10 +42,10 @@ async fn main() {
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
     let game = warp::path("game").and(warp::fs::file("./static/game.html"));
-    let files = warp::path("static").and(warp::fs::dir("./static/"));
+    let static_files = warp::path("static").and(warp::fs::dir("./static/"));
     // .with(warp::log("access"));
 
-    // XXX TODO add player auth and lookup playerIdx from that.
+    // POST /login, /register, /logout
     let login = warp::path("login")
         .and(warp::body::json())
         .and(db_getter.clone())
@@ -55,6 +54,27 @@ async fn main() {
         .and(warp::body::json())
         .and(db_getter.clone())
         .and_then(do_register);
+    let logout = warp::path("logout")
+        .map(|| warp::redirect::see_other(Uri::from_static("/")))
+        .map(|reply| {
+            warp::reply::with_header(
+                reply,
+                header::SET_COOKIE,
+                format!(
+                    "{}=; expires=Thu, 01 Jan 1970 00:00:00 GMT;",
+                    CONFIG.cookie.name
+                ),
+            )
+        });
+
+    // GET /check_login
+    let check_login = warp::path("check_login").and(needs_cookie).map(|_| "OK");
+
+    // POST /new_game => JSON
+    let new_game = warp::path("new_game")
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .and_then(do_new_game);
 
     // GET /board/$game_id => JSON
     let board = warp::path!("board" / i64)
@@ -80,8 +100,21 @@ async fn main() {
         .and(needs_cookie)
         .and_then(rotate_tile);
 
-    let gets = warp::get().and(index.or(game).or(files).or(board).or(hand));
-    let posts = warp::post().and(play.or(rotate).or(login).or(register));
+    let gets = warp::get().and(
+        index
+            .or(game)
+            .or(static_files)
+            .or(board)
+            .or(hand)
+            .or(check_login),
+    );
+    let posts = warp::post().and(
+        play.or(rotate)
+            .or(login)
+            .or(register)
+            .or(logout)
+            .or(new_game),
+    );
     let routes = gets.or(posts);
 
     warp::serve(routes)
@@ -138,6 +171,22 @@ async fn do_register(
                 .status(StatusCode::BAD_REQUEST)
                 .body(e.to_string())
         }
+    })
+}
+
+async fn do_new_game(
+    db: Database,
+    username: String,
+) -> WarpResult<impl warp::Reply> {
+    let mut app = db.lock().await;
+    Ok(match app.new_game(&username) {
+        Ok(game_id) => Response::builder()
+            .status(StatusCode::SEE_OTHER)
+            .header(header::LOCATION, format!("/game?id={}", game_id))
+            .body("".to_owned()),
+        Err(e) => Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(e.to_string()),
     })
 }
 

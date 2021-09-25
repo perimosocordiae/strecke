@@ -57,41 +57,56 @@ function errorText(msg) {
   return elt;
 }
 
+function handleLoginResponse(response) {
+  let notAuth = document.getElementById('notAuth');
+  if (response.ok) {
+    notAuth.style.display = 'none';
+    document.getElementById('hasAuth').style.display = '';
+  } else {
+    response.text().then(
+        text => notAuth.lastElementChild.appendChild(errorText(text)));
+  }
+}
+
 function doLogin(formData) {
-  let xhr = new XMLHttpRequest();
-  xhr.open('POST', '/login');
-  xhr.setRequestHeader('Content-type', 'application/json');
-  xhr.send(JSON.stringify(Object.fromEntries(formData)));
-  xhr.onload = () => {
-    let notAuth = document.getElementById('notAuth');
-    if (xhr.status != 200) {
-      let err = errorText(xhr.response);
-      notAuth.lastElementChild.appendChild(err);
-    } else {
-      notAuth.style.display = 'none';
-      document.getElementById('hasAuth').style.display = '';
-    }
-  };
-  xhr.onerror = () => {
-    let err = errorText(`Error code ${xhr.status}: ${xhr.response}`);
-    document.getElementById('notAuth').lastElementChild.appendChild(err);
-  };
+  fetch('/login', {
+    method : 'POST',
+    headers : {'Content-Type' : 'application/json'},
+    body : JSON.stringify(Object.fromEntries(formData)),
+  }).then(handleLoginResponse);
 }
 
 function doRegister(formData) {
-  let xhr = new XMLHttpRequest();
-  xhr.open('POST', '/register');
-  xhr.setRequestHeader('Content-type', 'application/json');
-  xhr.send(JSON.stringify(Object.fromEntries(formData)));
-  xhr.onload = () => {
-    let notAuth = document.getElementById('notAuth');
-    if (xhr.status != 200) {
-      let err = errorText(xhr.response);
-      notAuth.lastElementChild.appendChild(err);
-    } else {
-      notAuth.style.display = 'none';
+  fetch('/register', {
+    method : 'POST',
+    headers : {'Content-Type' : 'application/json'},
+    body : JSON.stringify(Object.fromEntries(formData)),
+  }).then(handleLoginResponse);
+}
+
+function checkLoginStatus() {
+  fetch('/check_login').then(response => {
+    if (response.ok) {
+      document.getElementById('notAuth').style.display = 'none';
       document.getElementById('hasAuth').style.display = '';
     }
+  });
+}
+
+function renderLogo() {
+  const LETTERS = {
+    s : [ [ 'A', 'E' ] ],
+    t : [ [ 'A', 'F' ], [ 'H', 'C' ] ],
+    r : [ [ 'H', 'E' ], [ 'H', 'B' ] ],
+    e : [ [ 'G', 'H' ], [ 'H', 'B' ], [ 'G', 'E' ] ],
+    c : [ [ 'C', 'H' ], [ 'H', 'D' ] ],
+    k : [ [ 'H', 'E' ], [ 'G', 'B' ], [ 'A', 'F' ] ],
   };
-  xhr.onerror = () => { console.error('Error', xhr.status, xhr.response); };
+  let logo = document.getElementById('logo');
+  for (let letter of 'strecke') {
+    let s = document.createElement('div');
+    s.classList.add('tile');
+    s.appendChild(renderTile({facing : 'North', layout : LETTERS[letter]}));
+    logo.appendChild(s);
+  }
 }

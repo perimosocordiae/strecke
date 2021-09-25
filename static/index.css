@@ -1,0 +1,31 @@
+body {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+}
+
+#logo {
+  display: grid;
+  width: 45em;
+  grid-template-columns: repeat(7, 1fr);
+  grid-gap: 0.5em;
+  height: 6em;
+  margin: 0 auto;
+}
+
+.content {
+  margin-top: 1em;
+}
+
+form {
+  display: inline-block;
+}
+
+.error {
+  color: red;
+  display: block;
+}
+
+input {
+  display: block;
+}

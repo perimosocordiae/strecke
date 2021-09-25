@@ -4,51 +4,26 @@
 <title>Strecke</title>
 <link rel="icon" href="/static/favicon.svg">
 <link rel="stylesheet" type="text/css" href="/static/board.css">
+<link rel="stylesheet" type="text/css" href="/static/index.css">
 <script src="/static/index.js"></script>
 <script src="/static/board.js"></script>
-<style type="text/css">
-  #logo {
-    display: grid;
-    width: 45em;
-    grid-template-columns: repeat(7, 1fr);
-    grid-gap: 0.5em;
-    height: 6em;
-    margin: 0 auto;
-  }
-
-  .error {
-    color: red;
-    display: block;
-  }
-
-  input {
-    display: block;
-  }
-</style>
 <div id="logo"></div>
-<div id="notAuth">
+<div id="notAuth" class="content">
   <button onclick=startLogin()>Login</button> |
   <button onclick=startRegister()>Register</button>
   <div></div>
 </div>
-<div id="hasAuth" style="display: none;">
-  <a href="/game?id=1">Start a Game</a>
+<div id="hasAuth" class="content" style="display: none;">
+  <form method="POST" action="/new_game">
+    <input type="submit" value="Start a new game">
+  </form>
+  |
+  <form method="POST" action="/logout">
+    <input type="submit" value="Log out">
+  </form>
 </div>
 
 <script type="text/javascript">
-  const LETTERS = {
-    s: [['A', 'E']],
-    t: [['A', 'F'], ['H', 'C']],
-    r: [['H', 'E'], ['H', 'B']],
-    e: [['G', 'H'], ['H', 'B'], ['G', 'E']],
-    c: [['C', 'H'], ['H', 'D']],
-    k: [['H', 'E'], ['G', 'B'], ['A', 'F']],
-  }
-  let logo = document.getElementById('logo');
-  for (let letter of 'strecke') {
-    let s = document.createElement('div');
-    s.classList.add('tile');
-    s.appendChild(renderTile({ facing: 'North', layout: LETTERS[letter] }));
-    logo.appendChild(s);
-  }
+  checkLoginStatus();
+  renderLogo();
 </script>
