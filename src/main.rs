@@ -121,9 +121,16 @@ async fn do_register(
     db: Database,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    Ok(match app.sign_up(creds) {
-        Ok(_) => Response::builder()
+    Ok(match app.sign_up(creds, CONFIG.cookie.encoder()) {
+        Ok(access_token) => Response::builder()
             .status(StatusCode::OK)
+            .header(
+                header::SET_COOKIE,
+                format!(
+                    "{}={}; HttpOnly; SameSite=Strict",
+                    CONFIG.cookie.name, access_token
+                ),
+            )
             .body("Created user".to_owned()),
         Err(e) => {
             error!("Failed to register: {:?}", e);

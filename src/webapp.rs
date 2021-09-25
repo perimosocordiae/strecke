@@ -38,6 +38,15 @@ impl fmt::Display for LoginError {
 }
 impl error::Error for LoginError {}
 
+#[derive(Debug)]
+struct SignupError;
+impl fmt::Display for SignupError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid username or password")
+    }
+}
+impl error::Error for SignupError {}
+
 impl AppState {
     pub fn new(db_path: &str) -> Result<Self> {
         let conn = rusqlite::Connection::open(db_path)?;
@@ -111,12 +120,24 @@ impl AppState {
         self.games.get_mut(&game_id).unwrap()
     }
 
-    pub fn sign_up(&mut self, creds: UserCredentials) -> Result<()> {
-        self.conn.execute(
+    pub fn sign_up(
+        &mut self,
+        creds: UserCredentials,
+        secret: &jsonwebtoken::EncodingKey,
+    ) -> Result<String> {
+        match self.conn.execute(
             "INSERT INTO players (username, hashed_password) VALUES (?, ?)",
             [&creds.username, &creds.hash()],
-        )?;
-        Ok(())
+        ) {
+            Ok(_) => {
+                info!("New user signed up: {}", &creds.username);
+                Ok(create_jwt(&creds.username, secret)?)
+            }
+            Err(e) => {
+                error!("Signup error: {:?}", e);
+                Err(SignupError.into())
+            }
+        }
     }
 
     pub fn check_login(
@@ -131,6 +152,7 @@ impl AppState {
         ) {
             Ok(db_pw) => {
                 if argon2::verify_encoded(&creds.hash(), db_pw.as_bytes())? {
+                    info!("User logged in: {}", &creds.username);
                     Ok(create_jwt(&creds.username, secret)?)
                 } else {
                     Err(LoginError.into())
