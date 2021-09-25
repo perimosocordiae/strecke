@@ -41,13 +41,13 @@ impl GameManager {
     }
     pub fn register_player(
         &mut self,
-        username: &str,
+        username: String,
         start_position: Position,
     ) -> Result<(), String> {
         let pos = cmp::max(0, self.tile_stack.len() as i32 - TILES_PER_PLAYER)
             as usize;
         self.players.push(Player {
-            username: username.to_owned(),
+            username,
             board_index: self.board.add_player(start_position)?,
             tiles_in_hand: self.tile_stack.split_off(pos),
         });

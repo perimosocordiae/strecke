@@ -1,5 +1,5 @@
+use crate::board;
 use crate::game::GameManager;
-use crate::{board, tiles};
 use argon2::{self, Config};
 use chrono::Utc;
 use rand::Rng;
@@ -72,35 +72,23 @@ impl AppState {
         })
     }
 
-    pub fn new_game(&mut self, username: &str) -> Result<i64> {
-        let mut rng = rand::thread_rng();
-        let mut gm = GameManager::new(&mut rng);
-        // Start demo code to exercise the game logic--------------------
-        gm.register_player(
-            username,
-            board::Position {
-                row: 2,
-                col: 6,
-                port: tiles::Port::G,
-                alive: true,
-            },
-        )?;
-        gm.register_player(
-            "Bob",
-            board::Position {
-                row: -1,
-                col: 3,
-                port: tiles::Port::E,
-                alive: true,
-            },
-        )?;
-        // End demo code ------------------------------------------------
+    pub fn new_game(
+        &mut self,
+        player_data: Vec<(String, board::Position)>,
+    ) -> Result<i64> {
+        let player_names: Vec<&String> =
+            player_data.iter().map(|(name, _)| name).collect();
         let now = Utc::now();
         self.conn.execute(
-            "INSERT INTO games (start_time) VALUES (?1)",
-            [now.to_rfc3339()],
+            "INSERT INTO games (start_time, player_ids) VALUES (?1, ?2)",
+            [now.to_rfc3339(), serde_json::to_string(&player_names)?],
         )?;
         let game_id = self.conn.last_insert_rowid();
+        let mut rng = rand::thread_rng();
+        let mut gm = GameManager::new(&mut rng);
+        for (username, position) in player_data.into_iter() {
+            gm.register_player(username, position)?;
+        }
         self.games.insert(game_id, gm);
         Ok(game_id)
     }
@@ -111,6 +99,54 @@ impl AppState {
 
     pub fn mut_game(&mut self, game_id: i64) -> &mut GameManager {
         self.games.get_mut(&game_id).unwrap()
+    }
+
+    pub fn take_turn(
+        &mut self,
+        game_id: i64,
+        username: &str,
+        idx: usize,
+    ) -> Result<&str> {
+        let game = self.games.get_mut(&game_id).ok_or("Invalid game ID")?;
+        if game.current_player().username != username {
+            return Ok("not your turn");
+        }
+        let num_alive = game.take_turn(idx);
+        if num_alive >= 2 {
+            return Ok("OK");
+        }
+        // Game is over, record the result in the DB.
+        let now = Utc::now();
+        self.conn.execute(
+            "UPDATE games
+            SET board_state = ?1, end_time = ?2
+            WHERE id = ?3 LIMIT 1",
+            [
+                serde_json::to_string(&game.board)?,
+                now.to_rfc3339(),
+                game_id.to_string(),
+            ],
+        )?;
+        let players_json = self.conn.query_row(
+            "SELECT player_ids FROM games WHERE id = ?1 LIMIT 1",
+            [game_id.to_string()],
+            |row| row.get::<usize, String>(0),
+        )?;
+        let player_names: Vec<String> = serde_json::from_str(&players_json)?;
+        for name in player_names.into_iter() {
+            self.conn.execute(
+                "UPDATE players
+                SET num_games = num_games + 1, last_game = ?1
+                WHERE username = ?2 LIMIT 1",
+                [now.to_rfc3339(), name],
+            )?;
+        }
+        // TODO: signal that the game is over in a better way
+        if num_alive == 1 {
+            // We have a winner, named game.current_player().username
+            return Ok("Somebody won!");
+        }
+        Ok("Everyone loses :(")
     }
 
     pub fn sign_up(

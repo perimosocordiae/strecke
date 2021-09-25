@@ -179,7 +179,28 @@ async fn do_new_game(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    Ok(match app.new_game(&username) {
+    // XXX demo code here until lobbies are implemented
+    let player_data = vec![
+        (
+            username,
+            board::Position {
+                row: 2,
+                col: 6,
+                port: tiles::Port::G,
+                alive: true,
+            },
+        ),
+        (
+            "AI player".to_owned(),
+            board::Position {
+                row: -1,
+                col: 3,
+                port: tiles::Port::E,
+                alive: true,
+            },
+        ),
+    ];
+    Ok(match app.new_game(player_data) {
         Ok(game_id) => Response::builder()
             .status(StatusCode::SEE_OTHER)
             .header(header::LOCATION, format!("/game?id={}", game_id))
@@ -215,14 +236,10 @@ async fn play_tile(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    if app.game(game_id).current_player().username != username {
-        return Ok("not your turn");
-    }
-    // TODO: when the result is zero, invalidate the game (and restart?)
-    Ok(match app.mut_game(game_id).take_turn(idx) {
-        0 => "Everyone loses",
-        1 => "Somebody won",
-        _ => "OK",
+    Ok(match app.take_turn(game_id, &username, idx) {
+        // TODO: when game is over, redirect to an endgame page
+        Ok(msg) => msg.to_owned(),
+        Err(e) => e.to_string(),
     })
 }
 
