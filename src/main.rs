@@ -226,7 +226,10 @@ async fn get_hand_json(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    Ok(warp::reply::json(app.game(game_id).get_player(&username)))
+    Ok(match app.game(game_id).get_player(&username) {
+        Some(p) => warp::reply::json(p),
+        None => warp::reply::json(&"Player not found."),
+    })
 }
 
 async fn play_tile(
@@ -250,8 +253,8 @@ async fn rotate_tile(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    app.mut_game(game_id)
-        .mut_player(&username)
-        .rotate_tile(tile_idx);
-    Ok("OK")
+    Ok(match app.rotate_tile(game_id, &username, tile_idx) {
+        Ok(msg) => msg.to_owned(),
+        Err(e) => e.to_string(),
+    })
 }

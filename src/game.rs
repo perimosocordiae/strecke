@@ -16,6 +16,7 @@ pub struct Player {
 
 impl Player {
     pub fn rotate_tile(&mut self, tile_idx: usize) {
+        // TODO: bounds check
         let tile = &mut self.tiles_in_hand[tile_idx];
         tile.rotate_left();
     }
@@ -111,18 +112,10 @@ impl GameManager {
     pub fn current_player(&self) -> &Player {
         &self.players[self.current_player_idx]
     }
-    pub fn mut_player(&mut self, player_name: &str) -> &mut Player {
-        // TODO: return a Result
-        match self.players.iter_mut().find(|p| p.username == player_name) {
-            Some(p) => p,
-            _ => panic!("No player named {}", player_name),
-        }
+    pub fn mut_player(&mut self, player_name: &str) -> Option<&mut Player> {
+        self.players.iter_mut().find(|p| p.username == player_name)
     }
-    pub fn get_player(&self, player_name: &str) -> &Player {
-        // TODO: return a Result
-        match self.players.iter().find(|&p| p.username == player_name) {
-            Some(p) => p,
-            _ => panic!("No player named {}", player_name),
-        }
+    pub fn get_player(&self, player_name: &str) -> Option<&Player> {
+        self.players.iter().find(|&p| p.username == player_name)
     }
 }

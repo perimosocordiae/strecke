@@ -14,8 +14,7 @@ Game details:
 
 TODO list:
 
- - database of players and games
- - landing page, login page, lobby page, stats page
+ - lobby page, game over page, stats page
  - AI agents
  - animations for player moves
  - colored player trails

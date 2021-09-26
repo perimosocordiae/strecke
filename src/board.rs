@@ -115,9 +115,8 @@ fn test_add_players() {
             col: -1,
             port: Port::D,
             alive: true,
-        })
-        .unwrap(),
-        0
+        }),
+        Ok(0)
     );
     assert_eq!(b.players.len(), 1);
     assert_eq!(b.players[0].port, Port::D);

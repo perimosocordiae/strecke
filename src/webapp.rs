@@ -97,8 +97,16 @@ impl AppState {
         &self.games[&game_id]
     }
 
-    pub fn mut_game(&mut self, game_id: i64) -> &mut GameManager {
-        self.games.get_mut(&game_id).unwrap()
+    pub fn rotate_tile(
+        &mut self,
+        game_id: i64,
+        username: &str,
+        tile_idx: usize,
+    ) -> Result<&str> {
+        let game = self.games.get_mut(&game_id).ok_or("Invalid game ID")?;
+        let player = game.mut_player(&username).ok_or("No such player")?;
+        player.rotate_tile(tile_idx);
+        Ok("OK")
     }
 
     pub fn take_turn(
