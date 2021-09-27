@@ -1,5 +1,6 @@
 mod board;
 mod game;
+mod lobby;
 mod settings;
 mod tiles;
 mod webapp;
@@ -71,6 +72,12 @@ async fn main() {
     let check_login = warp::path("check_login").and(needs_cookie).map(|_| "OK");
 
     // POST /new_game => JSON
+    let new_lobby = warp::path("new_lobby")
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .and_then(do_new_lobby);
+
+    // POST /new_game => JSON
     let new_game = warp::path("new_game")
         .and(db_getter.clone())
         .and(needs_cookie)
@@ -113,6 +120,7 @@ async fn main() {
             .or(login)
             .or(register)
             .or(logout)
+            .or(new_lobby)
             .or(new_game),
     );
     let routes = gets.or(posts);
@@ -204,6 +212,22 @@ async fn do_new_game(
         Ok(game_id) => Response::builder()
             .status(StatusCode::SEE_OTHER)
             .header(header::LOCATION, format!("/game?id={}", game_id))
+            .body("".to_owned()),
+        Err(e) => Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(e.to_string()),
+    })
+}
+
+async fn do_new_lobby(
+    db: Database,
+    username: String,
+) -> WarpResult<impl warp::Reply> {
+    let mut app = db.lock().await;
+    Ok(match app.new_lobby(username) {
+        Ok(lobby_code) => Response::builder()
+            .status(StatusCode::SEE_OTHER)
+            .header(header::LOCATION, format!("/lobby?code={}", lobby_code))
             .body("".to_owned()),
         Err(e) => Response::builder()
             .status(StatusCode::BAD_REQUEST)

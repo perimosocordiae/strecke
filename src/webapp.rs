@@ -1,5 +1,6 @@
 use crate::board;
 use crate::game::GameManager;
+use crate::lobby;
 use argon2::{self, Config};
 use chrono::Utc;
 use rand::Rng;
@@ -18,6 +19,7 @@ pub struct UserCredentials {
 pub struct AppState {
     games: HashMap<i64, GameManager>,
     conn: rusqlite::Connection,
+    lobbies: HashMap<String, lobby::Lobby>,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -69,13 +71,21 @@ impl AppState {
         Ok(Self {
             games: HashMap::new(),
             conn,
+            lobbies: HashMap::new(),
         })
+    }
+
+    pub fn new_lobby(&mut self, username: String) -> Result<&str> {
+        let _code = lobby::generate_lobby_code();
+        // TODO: ensure the code isn't already in use, then make it.
+        panic!("NYI");
     }
 
     pub fn new_game(
         &mut self,
         player_data: Vec<(String, board::Position)>,
     ) -> Result<i64> {
+        // TODO: take a lobby code, and get player info from that.
         let player_names: Vec<&String> =
             player_data.iter().map(|(name, _)| name).collect();
         let now = Utc::now();
