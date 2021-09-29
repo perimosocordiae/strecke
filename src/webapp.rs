@@ -1,11 +1,10 @@
-use crate::board;
 use crate::game::GameManager;
 use crate::lobby;
 use argon2::{self, Config};
 use chrono::Utc;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::error;
 use std::fmt;
 
@@ -42,6 +41,15 @@ impl fmt::Display for SignupError {
 }
 impl error::Error for SignupError {}
 
+#[derive(Debug)]
+struct NotHostError;
+impl fmt::Display for NotHostError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Only the host can start the game")
+    }
+}
+impl error::Error for NotHostError {}
+
 impl AppState {
     pub fn new(db_path: &str) -> Result<Self> {
         let conn = rusqlite::Connection::open(db_path)?;
@@ -75,28 +83,46 @@ impl AppState {
         })
     }
 
-    pub fn new_lobby(&mut self, username: String) -> Result<&str> {
-        let _code = lobby::generate_lobby_code();
-        // TODO: ensure the code isn't already in use, then make it.
-        panic!("NYI");
+    pub fn new_lobby(&mut self, username: String) -> Result<String> {
+        let mut code: String;
+        loop {
+            code = lobby::generate_lobby_code();
+            if let Entry::Vacant(v) = self.lobbies.entry(code) {
+                let res = v.key().to_owned();
+                v.insert(lobby::Lobby::new(username));
+                return Ok(res);
+            }
+        }
     }
 
     pub fn new_game(
         &mut self,
-        player_data: Vec<(String, board::Position)>,
+        lobby_code: String,
+        username: String,
     ) -> Result<i64> {
-        // TODO: take a lobby code, and get player info from that.
-        let player_names: Vec<&String> =
-            player_data.iter().map(|(name, _)| name).collect();
+        let mut lobby =
+            self.lobbies.remove(&lobby_code).ok_or("No such lobby")?;
+        match lobby.run_pregame_checks(&username) {
+            Ok(()) => {}
+            Err(e) => {
+                let ret = e.into();
+                self.lobbies.insert(lobby_code, lobby);
+                return Err(ret);
+            }
+        }
+        lobby.prepare_for_game();
         let now = Utc::now();
         self.conn.execute(
             "INSERT INTO games (start_time, player_ids) VALUES (?1, ?2)",
-            [now.to_rfc3339(), serde_json::to_string(&player_names)?],
+            [
+                now.to_rfc3339(),
+                serde_json::to_string(&lobby.player_names())?,
+            ],
         )?;
         let game_id = self.conn.last_insert_rowid();
         let mut rng = rand::thread_rng();
         let mut gm = GameManager::new(&mut rng);
-        for (username, position) in player_data.into_iter() {
+        for (username, position) in lobby.into_seated_players() {
             gm.register_player(username, position)?;
         }
         self.games.insert(game_id, gm);

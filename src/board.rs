@@ -1,7 +1,7 @@
 use crate::tiles::{Direction, Port, Tile};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct Position {
     pub row: i8,
     pub col: i8,
@@ -10,7 +10,7 @@ pub struct Position {
 }
 
 impl Position {
-    fn is_valid_start(&self) -> bool {
+    pub fn is_valid_start(&self) -> bool {
         if self.col < -1 || self.col > 6 || !self.alive {
             return false;
         }

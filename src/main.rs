@@ -78,7 +78,7 @@ async fn main() {
         .and_then(do_new_lobby);
 
     // POST /new_game => JSON
-    let new_game = warp::path("new_game")
+    let new_game = warp::path!("new_game" / String)
         .and(db_getter.clone())
         .and(needs_cookie)
         .and_then(do_new_game);
@@ -183,32 +183,12 @@ async fn do_register(
 }
 
 async fn do_new_game(
+    lobby_code: String,
     db: Database,
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    // XXX demo code here until lobbies are implemented
-    let player_data = vec![
-        (
-            username,
-            board::Position {
-                row: 2,
-                col: 6,
-                port: tiles::Port::G,
-                alive: true,
-            },
-        ),
-        (
-            "AI player".to_owned(),
-            board::Position {
-                row: -1,
-                col: 3,
-                port: tiles::Port::E,
-                alive: true,
-            },
-        ),
-    ];
-    Ok(match app.new_game(player_data) {
+    Ok(match app.new_game(lobby_code, username) {
         Ok(game_id) => Response::builder()
             .status(StatusCode::SEE_OTHER)
             .header(header::LOCATION, format!("/game?id={}", game_id))
