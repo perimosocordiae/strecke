@@ -20,9 +20,9 @@ function startRegister() {
   let form = document.createElement('form');
   form.appendChild(makeInput('text', 'username', true, 'Choose a Username'));
   form.appendChild(
-      makeInput('password', 'password', true, 'Choose a Password'));
+    makeInput('password', 'password', true, 'Choose a Password'));
   form.appendChild(
-      makeInput('password', 'password2', true, 'Confirm Password'));
+    makeInput('password', 'password2', true, 'Confirm Password'));
   form.appendChild(makeInput('submit'));
   form.onsubmit = () => {
     if (!form.checkValidity())
@@ -64,23 +64,23 @@ function handleLoginResponse(response) {
     document.getElementById('hasAuth').style.display = '';
   } else {
     response.text().then(
-        text => notAuth.lastElementChild.appendChild(errorText(text)));
+      text => notAuth.lastElementChild.appendChild(errorText(text)));
   }
 }
 
 function doLogin(formData) {
   fetch('/login', {
-    method : 'POST',
-    headers : {'Content-Type' : 'application/json'},
-    body : JSON.stringify(Object.fromEntries(formData)),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(formData)),
   }).then(handleLoginResponse);
 }
 
 function doRegister(formData) {
   fetch('/register', {
-    method : 'POST',
-    headers : {'Content-Type' : 'application/json'},
-    body : JSON.stringify(Object.fromEntries(formData)),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(formData)),
   }).then(handleLoginResponse);
 }
 
@@ -95,18 +95,18 @@ function checkLoginStatus() {
 
 function renderLogo() {
   const LETTERS = {
-    s : [ [ 'A', 'E' ] ],
-    t : [ [ 'A', 'F' ], [ 'H', 'C' ] ],
-    r : [ [ 'H', 'E' ], [ 'H', 'B' ] ],
-    e : [ [ 'G', 'H' ], [ 'H', 'B' ], [ 'G', 'E' ] ],
-    c : [ [ 'C', 'H' ], [ 'H', 'D' ] ],
-    k : [ [ 'H', 'E' ], [ 'G', 'B' ], [ 'A', 'F' ] ],
+    s: [['A', 'E']],
+    t: [['A', 'F'], ['H', 'C']],
+    r: [['H', 'E'], ['H', 'B']],
+    e: [['G', 'H'], ['H', 'B'], ['G', 'E']],
+    c: [['C', 'H'], ['H', 'D']],
+    k: [['H', 'E'], ['G', 'B'], ['A', 'F']],
   };
   let logo = document.getElementById('logo');
   for (let letter of 'strecke') {
     let s = document.createElement('div');
     s.classList.add('tile');
-    s.appendChild(renderTile({facing : 'North', layout : LETTERS[letter]}));
+    s.appendChild(renderTile({ facing: 'North', layout: LETTERS[letter] }));
     logo.appendChild(s);
   }
 }

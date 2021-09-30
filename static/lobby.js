@@ -10,17 +10,17 @@ function initLobby() {
 
 function fetchLobby() {
   fetch(`/lobby_data/${lobbyCode}`)
-      .then((response) => response.json())
-      .then((data) => {
-        document.getElementById('lobby').innerText = JSON.stringify(data);
-        // document.forms[0].seat.value = data...
-      });
+    .then((response) => response.json())
+    .then((data) => {
+      document.getElementById('lobby').innerText = JSON.stringify(data);
+      // document.forms[0].seat.value = data...
+    });
 }
 
 function takeSeat() {
   const seat = document.forms[0].seat.value;
   fetch(`/lobby_seat/${lobbyCode}/${seat}`, {
-    method : 'POST',
+    method: 'POST',
   }).then((response) => {
     if (response.ok) {
       fetchLobby();
@@ -29,12 +29,12 @@ function takeSeat() {
 }
 
 function startGame() {
-  fetch(`/new_game/${lobbyCode}`, {method : 'POST'}).then((response) => {
+  fetch(`/new_game/${lobbyCode}`, { method: 'POST' }).then((response) => {
     if (response.redirected) {
       window.location.href = response.url;
     } else {
-      response.text().then((msg) => document.getElementById('lobby').innerText =
-                               msg);
+      response.text().then((msg) =>
+        document.getElementById('lobby').innerText = msg);
     }
   });
 }

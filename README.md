@@ -14,7 +14,8 @@ Game details:
 
 TODO list:
 
- - lobby page, game over page, stats page
+ - websockets!
+ - lobby page improvements, game over page, stats page
  - AI agents
  - animations for player moves
  - colored player trails
