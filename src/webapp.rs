@@ -216,7 +216,8 @@ impl AppState {
         let config = Config::default();
         let hash = argon2::hash_encoded(&creds.password, &salt, &config)?;
         match self.conn.execute(
-            "INSERT INTO players (username, hashed_password) VALUES (?, ?)",
+            "INSERT INTO players (username, hashed_password, num_games)
+            VALUES (?, ?, 0)",
             [&creds.username, &hash],
         ) {
             Ok(_) => {
