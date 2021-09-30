@@ -12,7 +12,7 @@ pub fn generate_lobby_code() -> String {
     range
         .sample_iter(&mut rng)
         .take(4)
-        .map(|x| char::from(x as u8))
+        .map(|x| char::from(CODE_CHARS[x]))
         .collect()
 }
 
@@ -170,7 +170,14 @@ fn apply_permutation<T>(indices: &mut [usize], slice: &mut [T]) {
 #[test]
 fn test_make_code() {
     let code = generate_lobby_code();
+    let escaped: String =
+        code.chars().map(|c| c.escape_debug().to_string()).collect();
     assert_eq!(code.len(), 4);
+    assert!(
+        code.chars().all(|c| c.is_ascii_uppercase()),
+        "code = '{}'",
+        escaped
+    );
 }
 
 #[test]

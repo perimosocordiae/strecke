@@ -83,14 +83,13 @@ impl AppState {
         })
     }
 
-    pub fn new_lobby(&mut self, username: String) -> Result<String> {
-        let mut code: String;
+    pub fn new_lobby(&mut self, username: String) -> String {
         loop {
-            code = lobby::generate_lobby_code();
+            let code = lobby::generate_lobby_code();
             if let Entry::Vacant(v) = self.lobbies.entry(code) {
-                let res = v.key().to_owned();
+                let copy = v.key().to_owned();
                 v.insert(lobby::Lobby::new(username));
-                return Ok(res);
+                return copy;
             }
         }
     }
@@ -127,6 +126,10 @@ impl AppState {
         }
         self.games.insert(game_id, gm);
         Ok(game_id)
+    }
+
+    pub fn lobby(&self, lobby_code: &str) -> Option<&lobby::Lobby> {
+        self.lobbies.get(lobby_code)
     }
 
     pub fn game(&self, game_id: i64) -> &GameManager {

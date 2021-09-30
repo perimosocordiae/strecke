@@ -43,6 +43,7 @@ async fn main() {
 
     let index = warp::path::end().and(warp::fs::file("./static/index.html"));
     let game = warp::path("game").and(warp::fs::file("./static/game.html"));
+    let lobby = warp::path("lobby").and(warp::fs::file("./static/lobby.html"));
     let static_files = warp::path("static").and(warp::fs::dir("./static/"));
     // .with(warp::log("access"));
 
@@ -95,6 +96,12 @@ async fn main() {
         .and(needs_cookie)
         .and_then(get_hand_json);
 
+    // GET /lobby/$code => JSON
+    let lobby_data = warp::path!("lobby_data" / String)
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .and_then(get_lobby_json);
+
     // POST /play/$game_id/$tile_idx => OK
     let play = warp::path!("play" / i64 / usize)
         .and(db_getter.clone())
@@ -110,9 +117,11 @@ async fn main() {
     let gets = warp::get().and(
         index
             .or(game)
+            .or(lobby)
             .or(static_files)
             .or(board)
             .or(hand)
+            .or(lobby_data)
             .or(check_login),
     );
     let posts = warp::post().and(
@@ -204,15 +213,12 @@ async fn do_new_lobby(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    Ok(match app.new_lobby(username) {
-        Ok(lobby_code) => Response::builder()
-            .status(StatusCode::SEE_OTHER)
-            .header(header::LOCATION, format!("/lobby?code={}", lobby_code))
-            .body("".to_owned()),
-        Err(e) => Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(e.to_string()),
-    })
+    let lobby_code = app.new_lobby(username.clone());
+    info!("Made lobby {} for user {}", &lobby_code, &username);
+    Ok(Response::builder()
+        .status(StatusCode::SEE_OTHER)
+        .header(header::LOCATION, format!("/lobby?code={}", lobby_code))
+        .body("".to_owned()))
 }
 
 async fn get_board_json(
@@ -233,6 +239,18 @@ async fn get_hand_json(
     Ok(match app.game(game_id).get_player(&username) {
         Some(p) => warp::reply::json(p),
         None => warp::reply::json(&"Player not found."),
+    })
+}
+
+async fn get_lobby_json(
+    lobby_code: String,
+    db: Database,
+    _username: String,
+) -> WarpResult<impl warp::Reply> {
+    let app = db.lock().await;
+    Ok(match app.lobby(&lobby_code) {
+        Some(lobby) => warp::reply::json(lobby),
+        None => warp::reply::json(&"No such lobby"),
     })
 }
 
