@@ -32,6 +32,9 @@ function startGame() {
   fetch(`/new_game/${lobbyCode}`, {method : 'POST'}).then((response) => {
     if (response.redirected) {
       window.location.href = response.url;
+    } else {
+      response.text().then((msg) => document.getElementById('lobby').innerText =
+                               msg);
     }
   });
 }

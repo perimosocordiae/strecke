@@ -143,8 +143,8 @@ impl AppState {
         Ok("OK")
     }
 
-    pub fn game(&self, game_id: i64) -> &GameManager {
-        &self.games[&game_id]
+    pub fn game(&self, game_id: i64) -> Option<&GameManager> {
+        self.games.get(&game_id)
     }
 
     pub fn rotate_tile(

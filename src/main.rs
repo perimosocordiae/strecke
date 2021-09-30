@@ -234,7 +234,10 @@ async fn get_board_json(
     _username: String,
 ) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    Ok(warp::reply::json(&app.game(game_id).board))
+    Ok(match app.game(game_id) {
+        Some(game) => warp::reply::json(&game.board),
+        None => warp::reply::json(&"Game not found."),
+    })
 }
 
 async fn get_hand_json(
@@ -243,9 +246,12 @@ async fn get_hand_json(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let app = db.lock().await;
-    Ok(match app.game(game_id).get_player(&username) {
-        Some(p) => warp::reply::json(p),
-        None => warp::reply::json(&"Player not found."),
+    Ok(match app.game(game_id) {
+        Some(game) => match game.get_player(&username) {
+            Some(p) => warp::reply::json(p),
+            None => warp::reply::json(&"Player not found."),
+        },
+        None => warp::reply::json(&"Game not found."),
     })
 }
 
