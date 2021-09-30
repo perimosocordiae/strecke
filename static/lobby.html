@@ -5,6 +5,12 @@
 <link rel="icon" href="/static/favicon.svg">
 <link rel="stylesheet" type="text/css" href="/static/lobby.css">
 <script src="/static/lobby.js"></script>
-<body onload="fetchLobby()">
+<body onload="initLobby()">
+  <a href="/">Strecke</a>
   <div id="lobby"></div>
+  <form>
+    <label>Choose a seat: <input type="number" name="seat" value=48></label>
+  </form>
+  <button onclick="takeSeat()">Take Seat</button>
+  <button onclick="startGame()">Start Game</button>
 </body>

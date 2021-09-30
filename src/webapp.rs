@@ -132,6 +132,17 @@ impl AppState {
         self.lobbies.get(lobby_code)
     }
 
+    pub fn take_seat(
+        &mut self,
+        lobby_code: &str,
+        seat_idx: i8,
+        username: String,
+    ) -> Result<&str> {
+        let lobby = self.lobbies.get_mut(lobby_code).ok_or("No such lobby")?;
+        lobby.take_seat(seat_idx, username)?;
+        Ok("OK")
+    }
+
     pub fn game(&self, game_id: i64) -> &GameManager {
         &self.games[&game_id]
     }

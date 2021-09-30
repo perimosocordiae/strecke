@@ -21,6 +21,10 @@ pub fn generate_lobby_code() -> String {
 type EdgePos = i8;
 const NOT_READY: EdgePos = 48;
 
+fn is_valid_edge_position(pos: EdgePos) -> bool {
+    (0..=NOT_READY).contains(&pos)
+}
+
 fn edge_position(pos: EdgePos) -> board::Position {
     let port: Port;
     let (row, col) = if pos < 12 {
@@ -58,15 +62,37 @@ pub struct Lobby {
 
 impl Lobby {
     pub fn new(username: String) -> Self {
+        let max_num_players = 2;
+        let mut names = Vec::with_capacity(max_num_players);
+        names.push(username);
+        let mut start_positions = Vec::with_capacity(max_num_players);
+        start_positions.push(NOT_READY);
         Lobby {
-            names: vec![username],
-            start_positions: vec![NOT_READY],
-            max_num_players: 2,
+            names,
+            start_positions,
+            max_num_players,
         }
     }
 
     fn host(&self) -> &String {
         &self.names[0]
+    }
+
+    pub fn take_seat(
+        &mut self,
+        seat_idx: EdgePos,
+        username: String,
+    ) -> Result<(), &str> {
+        if !is_valid_edge_position(seat_idx) {
+            return Err("Invalid seat_idx");
+        }
+        if let Some(i) = self.names.iter().position(|name| name == &username) {
+            self.start_positions[i] = seat_idx;
+        } else {
+            self.names.push(username);
+            self.start_positions.push(seat_idx);
+        }
+        Ok(())
     }
 
     pub fn player_names(&self) -> Vec<&String> {
@@ -116,16 +142,18 @@ impl Lobby {
             .unwrap();
         assert!(num_humans <= self.max_num_players);
         if num_humans < self.max_num_players {
+            self.names.truncate(num_humans);
+            self.start_positions.truncate(num_humans);
             let range = Uniform::from(0..48);
             let mut rng = rand::thread_rng();
-            for (i, idx) in (num_humans..self.max_num_players).enumerate() {
-                self.names[idx] = format!("AI player #{}", i + 1);
+            for i in 0..(self.max_num_players - num_humans) {
+                self.names.push(format!("AI player #{}", i + 1));
                 // Assign a random starting location that isn't in use.
                 // TODO: enforce separation constraints
                 loop {
                     let pos = range.sample(&mut rng);
                     if !self.start_positions.contains(&pos) {
-                        self.start_positions[idx] = pos;
+                        self.start_positions.push(pos);
                         break;
                     }
                 }

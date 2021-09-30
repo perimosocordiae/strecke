@@ -78,7 +78,7 @@ async fn main() {
         .and(needs_cookie)
         .and_then(do_new_lobby);
 
-    // POST /new_game => JSON
+    // POST /new_game/$code => JSON
     let new_game = warp::path!("new_game" / String)
         .and(db_getter.clone())
         .and(needs_cookie)
@@ -114,6 +114,12 @@ async fn main() {
         .and(needs_cookie)
         .and_then(rotate_tile);
 
+    // POST /lobby_seat/$code/$seat_idx
+    let lobby_seat = warp::path!("lobby_seat" / String / i8)
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .and_then(take_seat);
+
     let gets = warp::get().and(
         index
             .or(game)
@@ -126,6 +132,7 @@ async fn main() {
     );
     let posts = warp::post().and(
         play.or(rotate)
+            .or(lobby_seat)
             .or(login)
             .or(register)
             .or(logout)
@@ -276,6 +283,19 @@ async fn rotate_tile(
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
     Ok(match app.rotate_tile(game_id, &username, tile_idx) {
+        Ok(msg) => msg.to_owned(),
+        Err(e) => e.to_string(),
+    })
+}
+
+async fn take_seat(
+    lobby_code: String,
+    seat_idx: i8,
+    db: Database,
+    username: String,
+) -> WarpResult<impl warp::Reply> {
+    let mut app = db.lock().await;
+    Ok(match app.take_seat(&lobby_code, seat_idx, username) {
         Ok(msg) => msg.to_owned(),
         Err(e) => e.to_string(),
     })
