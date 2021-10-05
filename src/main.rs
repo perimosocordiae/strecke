@@ -5,9 +5,12 @@ mod settings;
 mod tiles;
 mod webapp;
 
+use futures::{SinkExt, StreamExt, TryFutureExt};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::http::{header, Response, StatusCode, Uri};
+use warp::ws::WebSocket;
 use warp::Filter;
 
 #[macro_use]
@@ -120,6 +123,15 @@ async fn main() {
         .and(needs_cookie)
         .and_then(take_seat);
 
+    // GET /ws => websocket
+    let ws = warp::path("ws")
+        .and(warp::ws())
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .map(|ws: warp::ws::Ws, db, username| {
+            ws.on_upgrade(move |socket| new_connection(socket, db, username))
+        });
+
     let gets = warp::get().and(
         index
             .or(game)
@@ -139,7 +151,8 @@ async fn main() {
             .or(new_lobby)
             .or(new_game),
     );
-    let routes = gets.or(posts);
+
+    let routes = gets.or(posts).or(ws);
 
     warp::serve(routes)
         .run(([0, 0, 0, 0], CONFIG.server.port))
@@ -305,4 +318,37 @@ async fn take_seat(
         Ok(msg) => msg.to_owned(),
         Err(e) => e.to_string(),
     })
+}
+
+async fn new_connection(ws: WebSocket, db: Database, username: String) {
+    info!("Got new ws connection from {}", &username);
+    let mut _app = db.lock().await;
+    let (mut ws_tx, mut ws_rx) = ws.split();
+    let (_tx, rx) = mpsc::unbounded_channel();
+    let mut rx = UnboundedReceiverStream::new(rx);
+    tokio::task::spawn(async move {
+        while let Some(message) = rx.next().await {
+            ws_tx
+                .send(message)
+                .unwrap_or_else(|e| {
+                    error!("WS send error: {}", e);
+                })
+                .await;
+        }
+    });
+    // TODO: save tx in app.websockets[username].
+    while let Some(result) = ws_rx.next().await {
+        let msg = match result {
+            Ok(msg) => msg,
+            Err(e) => {
+                error!("WS error for user {}: {}", &username, e);
+                break;
+            }
+        };
+        if let Ok(text) = msg.to_str() {
+            info!("TODO: handle message for user {}: {}", &username, text);
+        }
+    }
+    // The above loop only ends when the user disconnects.
+    info!("Disconnected WS for {}", &username);
 }

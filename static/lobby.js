@@ -1,10 +1,15 @@
 'use strict';
 
 var lobbyCode = null;
+var ws = null;
 
 function initLobby() {
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(location.search);
   lobbyCode = urlParams.get('code');
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => console.log('Opened WS connection.');
+  ws.onmessage = (msg) => console.log('Got WS message:', msg);
+  ws.onclose = () => console.log('Closed WS connection.');
   fetchLobby();
 }
 
@@ -33,8 +38,8 @@ function startGame() {
     if (response.redirected) {
       window.location.href = response.url;
     } else {
-      response.text().then((msg) =>
-        document.getElementById('lobby').innerText = msg);
+      response.text().then((msg) => document.getElementById('lobby').innerText =
+        msg);
     }
   });
 }
