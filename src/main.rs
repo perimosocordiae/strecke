@@ -322,9 +322,9 @@ async fn take_seat(
 
 async fn new_connection(ws: WebSocket, db: Database, username: String) {
     info!("Got new ws connection from {}", &username);
-    let mut _app = db.lock().await;
     let (mut ws_tx, mut ws_rx) = ws.split();
-    let (_tx, rx) = mpsc::unbounded_channel();
+    // Set up a channel to buffer messages.
+    let (tx, rx) = mpsc::unbounded_channel();
     let mut rx = UnboundedReceiverStream::new(rx);
     tokio::task::spawn(async move {
         while let Some(message) = rx.next().await {
@@ -336,7 +336,9 @@ async fn new_connection(ws: WebSocket, db: Database, username: String) {
                 .await;
         }
     });
-    // TODO: save tx in app.websockets[username].
+    // Save a handle to this user's websocket.
+    db.lock().await.websockets.insert(username.clone(), tx);
+    // Handle incoming messages from this user.
     while let Some(result) = ws_rx.next().await {
         let msg = match result {
             Ok(msg) => msg,
@@ -345,10 +347,15 @@ async fn new_connection(ws: WebSocket, db: Database, username: String) {
                 break;
             }
         };
-        if let Ok(text) = msg.to_str() {
-            info!("TODO: handle message for user {}: {}", &username, text);
+        // TODO: only pass on messages to users in the same room.
+        for (user, tx) in db.lock().await.websockets.iter() {
+            if user != &username {
+                // If recipient disconnected, that's not our problem.
+                let _ = tx.send(msg.clone());
+            }
         }
     }
     // The above loop only ends when the user disconnects.
     info!("Disconnected WS for {}", &username);
+    db.lock().await.websockets.remove(&username);
 }

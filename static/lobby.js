@@ -8,7 +8,7 @@ function initLobby() {
   lobbyCode = urlParams.get('code');
   ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onopen = () => console.log('Opened WS connection.');
-  ws.onmessage = (msg) => console.log('Got WS message:', msg);
+  ws.onmessage = (msg) => console.log('Got WS message:', msg.data);
   ws.onclose = () => console.log('Closed WS connection.');
   fetchLobby();
 }

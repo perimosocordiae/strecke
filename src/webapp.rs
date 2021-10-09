@@ -15,10 +15,14 @@ pub struct UserCredentials {
     password: Vec<u8>,
 }
 
+type WebsockerSender = tokio::sync::mpsc::UnboundedSender<warp::ws::Message>;
+
 pub struct AppState {
     games: HashMap<i64, GameManager>,
     conn: rusqlite::Connection,
     lobbies: HashMap<String, lobby::Lobby>,
+    // TODO: remove pub access
+    pub websockets: HashMap<String, WebsockerSender>,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -80,6 +84,7 @@ impl AppState {
             games: HashMap::new(),
             conn,
             lobbies: HashMap::new(),
+            websockets: HashMap::new(),
         })
     }
 
