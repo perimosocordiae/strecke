@@ -1,12 +1,10 @@
 'use strict';
-
-var lobbyCode = null;
-var ws = null;
+let lobbyCode = null;
 
 function initLobby() {
   const urlParams = new URLSearchParams(location.search);
   lobbyCode = urlParams.get('code');
-  ws = new WebSocket(`ws://${location.host}/ws/${lobbyCode}`);
+  const ws = new WebSocket(`ws://${location.host}/ws/${lobbyCode}`);
   ws.onopen = () => console.log('Opened WS connection.');
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -36,9 +34,11 @@ function renderError(message) {
 
 function takeSeat() {
   const seat = document.forms[0].seat.value;
+  renderError('');
   fetch(`/lobby_seat/${lobbyCode}/${seat}`, { method: 'POST' });
 }
 
 function startGame() {
+  renderError('');
   fetch(`/new_game/${lobbyCode}`, { method: 'POST' });
 }

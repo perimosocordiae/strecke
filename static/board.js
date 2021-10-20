@@ -1,11 +1,20 @@
 'use strict';
 let playerPositions = [];
 let gameId = 0;
+let ws = null;
 
 function bodyLoaded() {
   gameId = (new URL(window.location)).searchParams.get('id');
   fetchJson(`/board/${gameId}`, renderBoard);
   fetchJson(`/hand/${gameId}`, renderHand);
+
+  ws = new WebSocket(`ws://${location.host}/ws/${gameId}`);
+  ws.onopen = () => console.log('Opened WS connection.');
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    console.log('Got WS message:', msg);
+  }
+  ws.onclose = () => console.log('Closed WS connection.');
 }
 
 function playTile(tileIdx) {
