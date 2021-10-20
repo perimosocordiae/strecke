@@ -15,14 +15,22 @@ pub struct UserCredentials {
     password: Vec<u8>,
 }
 
-type WebsockerSender = tokio::sync::mpsc::UnboundedSender<warp::ws::Message>;
+#[derive(Serialize)]
+#[serde(tag = "action")]
+pub enum LobbyResponse<'a> {
+    Update { lobby: &'a lobby::Lobby },
+    Start { url: String },
+    Error { message: String },
+}
+
+type WebsocketSender = tokio::sync::mpsc::UnboundedSender<warp::ws::Message>;
 
 pub struct AppState {
     games: HashMap<i64, GameManager>,
     conn: rusqlite::Connection,
     lobbies: HashMap<String, lobby::Lobby>,
-    // TODO: remove pub access
-    pub websockets: HashMap<String, WebsockerSender>,
+    // Room -> Username -> Sender
+    websockets: HashMap<String, HashMap<String, WebsocketSender>>,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -99,18 +107,18 @@ impl AppState {
         }
     }
 
-    pub fn new_game(
+    fn new_game_helper(
         &mut self,
-        lobby_code: String,
-        username: String,
+        lobby_code: &str,
+        username: &str,
     ) -> Result<i64> {
         let mut lobby =
-            self.lobbies.remove(&lobby_code).ok_or("No such lobby")?;
-        match lobby.run_pregame_checks(&username) {
+            self.lobbies.remove(lobby_code).ok_or("No such lobby")?;
+        match lobby.run_pregame_checks(username) {
             Ok(()) => {}
             Err(e) => {
                 let ret = e.into();
-                self.lobbies.insert(lobby_code, lobby);
+                self.lobbies.insert(lobby_code.to_owned(), lobby);
                 return Err(ret);
             }
         }
@@ -126,26 +134,68 @@ impl AppState {
         let game_id = self.conn.last_insert_rowid();
         let mut rng = rand::thread_rng();
         let mut gm = GameManager::new(&mut rng);
-        for (username, position) in lobby.into_seated_players() {
-            gm.register_player(username, position)?;
+        for (user, position) in lobby.into_seated_players() {
+            gm.register_player(user, position)?;
         }
         self.games.insert(game_id, gm);
         Ok(game_id)
+    }
+
+    pub fn new_game(&mut self, lobby_code: &str, username: &str) {
+        match self.new_game_helper(lobby_code, username) {
+            Ok(game_id) => {
+                let msg = serde_json::to_string(&LobbyResponse::Start {
+                    url: format!("/game?id={}", game_id),
+                })
+                .unwrap();
+                self.broadcast_to_room(msg, lobby_code, None);
+            }
+            Err(e) => {
+                let msg = serde_json::to_string(&LobbyResponse::Error {
+                    message: e.to_string(),
+                })
+                .unwrap();
+                self.send_to_user(msg, lobby_code, username);
+            }
+        };
     }
 
     pub fn lobby(&self, lobby_code: &str) -> Option<&lobby::Lobby> {
         self.lobbies.get(lobby_code)
     }
 
+    fn take_seat_helper(
+        &mut self,
+        lobby_code: &str,
+        seat_idx: i8,
+        username: &str,
+    ) -> Result<&lobby::Lobby> {
+        let lobby = self.lobbies.get_mut(lobby_code).ok_or("No such lobby")?;
+        lobby.take_seat(seat_idx, username.to_owned())?;
+        Ok(lobby)
+    }
+
     pub fn take_seat(
         &mut self,
         lobby_code: &str,
         seat_idx: i8,
-        username: String,
-    ) -> Result<&str> {
-        let lobby = self.lobbies.get_mut(lobby_code).ok_or("No such lobby")?;
-        lobby.take_seat(seat_idx, username)?;
-        Ok("OK")
+        username: &str,
+    ) {
+        match self.take_seat_helper(lobby_code, seat_idx, username) {
+            Ok(lobby) => {
+                let msg =
+                    serde_json::to_string(&LobbyResponse::Update { lobby })
+                        .unwrap();
+                self.broadcast_to_room(msg, lobby_code, None);
+            }
+            Err(e) => {
+                let msg = serde_json::to_string(&LobbyResponse::Error {
+                    message: e.to_string(),
+                })
+                .unwrap();
+                self.send_to_user(msg, lobby_code, username);
+            }
+        };
     }
 
     pub fn game(&self, game_id: i64) -> Option<&GameManager> {
@@ -266,6 +316,45 @@ impl AppState {
                 Err(LoginError.into())
             }
         }
+    }
+
+    pub fn add_user_to_room(
+        &mut self,
+        room: &str,
+        username: &str,
+        tx: WebsocketSender,
+    ) {
+        self.websockets
+            .entry(room.to_owned())
+            .or_insert_with(HashMap::new)
+            .insert(username.to_owned(), tx);
+    }
+
+    pub fn remove_user_from_room(&mut self, room: &str, username: &str) {
+        if let Some(users) = self.websockets.get_mut(room) {
+            users.remove(username);
+            if users.is_empty() {
+                self.websockets.remove(room);
+            }
+        }
+    }
+
+    pub fn broadcast_to_room(
+        &self,
+        msg: String,
+        room: &str,
+        sender: Option<&str>,
+    ) {
+        for (user, tx) in self.websockets[room].iter() {
+            if sender != Some(user) {
+                // If the recipient disconnected, that's not our problem.
+                let _ = tx.send(warp::ws::Message::text(msg.clone()));
+            }
+        }
+    }
+
+    fn send_to_user(&self, msg: String, room: &str, user: &str) {
+        let _ = self.websockets[room][user].send(warp::ws::Message::text(msg));
     }
 }
 

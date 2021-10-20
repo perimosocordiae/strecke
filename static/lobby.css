@@ -3,3 +3,7 @@
   white-space: pre;
   font-family: monospace;
 }
+
+#error {
+  color: red;
+}

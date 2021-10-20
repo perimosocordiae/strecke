@@ -124,12 +124,14 @@ async fn main() {
         .and_then(take_seat);
 
     // GET /ws => websocket
-    let ws = warp::path("ws")
+    let ws = warp::path!("ws" / String)
         .and(warp::ws())
         .and(db_getter.clone())
         .and(needs_cookie)
-        .map(|ws: warp::ws::Ws, db, username| {
-            ws.on_upgrade(move |socket| new_connection(socket, db, username))
+        .map(|room, ws: warp::ws::Ws, db, username| {
+            ws.on_upgrade(move |socket| {
+                new_connection(socket, db, room, username)
+            })
         });
 
     let gets = warp::get().and(
@@ -216,16 +218,12 @@ async fn do_new_game(
     db: Database,
     username: String,
 ) -> WarpResult<impl warp::Reply> {
-    let mut app = db.lock().await;
-    Ok(match app.new_game(lobby_code, username) {
-        Ok(game_id) => Response::builder()
-            .status(StatusCode::SEE_OTHER)
-            .header(header::LOCATION, format!("/game?id={}", game_id))
-            .body("".to_owned()),
-        Err(e) => Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(e.to_string()),
-    })
+    db.lock().await.new_game(&lobby_code, &username);
+    info!(
+        "Started game from lobby {} for user {}",
+        &lobby_code, &username
+    );
+    Ok("OK")
 }
 
 async fn do_new_lobby(
@@ -313,15 +311,17 @@ async fn take_seat(
     db: Database,
     username: String,
 ) -> WarpResult<impl warp::Reply> {
-    let mut app = db.lock().await;
-    Ok(match app.take_seat(&lobby_code, seat_idx, username) {
-        Ok(msg) => msg.to_owned(),
-        Err(e) => e.to_string(),
-    })
+    db.lock().await.take_seat(&lobby_code, seat_idx, &username);
+    Ok("OK")
 }
 
-async fn new_connection(ws: WebSocket, db: Database, username: String) {
-    info!("Got new ws connection from {}", &username);
+async fn new_connection(
+    ws: WebSocket,
+    db: Database,
+    room: String,
+    username: String,
+) {
+    info!("Got new ws connection from {} in {}", &username, &room);
     let (mut ws_tx, mut ws_rx) = ws.split();
     // Set up a channel to buffer messages.
     let (tx, rx) = mpsc::unbounded_channel();
@@ -337,7 +337,7 @@ async fn new_connection(ws: WebSocket, db: Database, username: String) {
         }
     });
     // Save a handle to this user's websocket.
-    db.lock().await.websockets.insert(username.clone(), tx);
+    db.lock().await.add_user_to_room(&room, &username, tx);
     // Handle incoming messages from this user.
     while let Some(result) = ws_rx.next().await {
         let msg = match result {
@@ -347,15 +347,16 @@ async fn new_connection(ws: WebSocket, db: Database, username: String) {
                 break;
             }
         };
-        // TODO: only pass on messages to users in the same room.
-        for (user, tx) in db.lock().await.websockets.iter() {
-            if user != &username {
-                // If recipient disconnected, that's not our problem.
-                let _ = tx.send(msg.clone());
-            }
+        if let Ok(text) = msg.to_str() {
+            info!("Broadcasting from {} -> {}: {}", &username, &room, &text);
+            db.lock().await.broadcast_to_room(
+                text.to_owned(),
+                &room,
+                Some(&username),
+            );
         }
     }
     // The above loop only ends when the user disconnects.
     info!("Disconnected WS for {}", &username);
-    db.lock().await.websockets.remove(&username);
+    db.lock().await.remove_user_from_room(&room, &username);
 }
