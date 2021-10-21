@@ -9,14 +9,6 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn turn_left(&self) -> Direction {
-        match self {
-            Direction::North => Direction::West,
-            Direction::West => Direction::South,
-            Direction::South => Direction::East,
-            Direction::East => Direction::North,
-        }
-    }
     pub fn grid_offsets(&self) -> (i8, i8) {
         match self {
             Direction::North => (-1, 0),
@@ -25,18 +17,22 @@ impl Direction {
             Direction::East => (0, 1),
         }
     }
-}
-
-#[test]
-fn test_turn_left() {
-    let mut r = Direction::South.turn_left();
-    assert_eq!(r, Direction::East);
-    r = r.turn_left();
-    assert_eq!(r, Direction::North);
-    r = r.turn_left();
-    assert_eq!(r, Direction::West);
-    r = r.turn_left();
-    assert_eq!(r, Direction::South);
+    fn normalize_port(&self, p: Port) -> Port {
+        match self {
+            Direction::North => p,
+            Direction::South => p.turn_left().turn_left(),
+            Direction::East => p.turn_left(),
+            Direction::West => p.turn_right(),
+        }
+    }
+    fn unnormalize_port(&self, p: Port) -> Port {
+        match self {
+            Direction::North => p,
+            Direction::South => p.turn_left().turn_left(),
+            Direction::East => p.turn_right(),
+            Direction::West => p.turn_left(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
@@ -101,36 +97,16 @@ impl Port {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Tile {
     layout: [(Port, Port); 4],
-    facing: Direction,
 }
 
 impl Tile {
-    pub fn rotate_left(&mut self) {
-        self.facing = self.facing.turn_left();
-    }
-    fn normalize_port(&self, p: Port) -> Port {
-        match self.facing {
-            Direction::North => p,
-            Direction::South => p.turn_left().turn_left(),
-            Direction::East => p.turn_left(),
-            Direction::West => p.turn_right(),
-        }
-    }
-    fn unnormalize_port(&self, p: Port) -> Port {
-        match self.facing {
-            Direction::North => p,
-            Direction::South => p.turn_left().turn_left(),
-            Direction::East => p.turn_right(),
-            Direction::West => p.turn_left(),
-        }
-    }
-    pub fn traverse(&self, from: Port) -> Port {
-        let start = self.normalize_port(from.flip());
+    pub fn traverse(&self, from: Port, facing: Direction) -> Port {
+        let start = facing.normalize_port(from.flip());
         for (p1, p2) in self.layout.iter() {
             if start == *p1 {
-                return self.unnormalize_port(*p2);
+                return facing.unnormalize_port(*p2);
             } else if start == *p2 {
-                return self.unnormalize_port(*p1);
+                return facing.unnormalize_port(*p1);
             }
         }
         panic!("Unreachable path: start={:?}, tile={:?}", start, self);
@@ -146,7 +122,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::H),
                 (Port::D, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -155,7 +130,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::G),
                 (Port::D, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -164,7 +138,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::H),
                 (Port::D, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -173,7 +146,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -182,7 +154,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::E),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -191,7 +162,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -200,7 +170,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -209,7 +178,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::F),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -218,7 +186,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::G),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -227,7 +194,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -236,7 +202,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::C, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -245,7 +210,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -254,7 +218,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::F),
                 (Port::E, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -263,7 +226,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::E),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -272,7 +234,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::F),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -281,7 +242,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::E),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -290,7 +250,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::E, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -299,7 +258,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -308,7 +266,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -317,7 +274,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -326,7 +282,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -335,7 +290,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -344,7 +298,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::E, Port::F),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -353,7 +306,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::F),
                 (Port::E, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -362,7 +314,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::E),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -371,7 +322,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::E, Port::F),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -380,7 +330,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::F),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -389,7 +338,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::E),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -398,7 +346,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::E, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -407,7 +354,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::E, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -416,7 +362,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -425,7 +370,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::D, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -434,7 +378,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::H),
                 (Port::F, Port::G),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -443,7 +386,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::G),
                 (Port::F, Port::H),
             ],
-            facing: Direction::North,
         },
         Tile {
             layout: [
@@ -452,7 +394,6 @@ pub fn all_tiles() -> Vec<Tile> {
                 (Port::E, Port::F),
                 (Port::G, Port::H),
             ],
-            facing: Direction::North,
         },
     ]
 }

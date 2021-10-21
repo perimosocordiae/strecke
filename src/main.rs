@@ -1,3 +1,4 @@
+mod agent;
 mod board;
 mod game;
 mod lobby;
@@ -105,17 +106,12 @@ async fn main() {
         .and(needs_cookie)
         .and_then(get_lobby_json);
 
-    // POST /play/$game_id/$tile_idx => OK
-    let play = warp::path!("play" / i64 / usize)
+    // POST /play => OK
+    let play = warp::path("play")
+        .and(warp::body::json())
         .and(db_getter.clone())
         .and(needs_cookie)
         .and_then(play_tile);
-
-    // POST /rotate/$game_id/$tile_idx => OK
-    let rotate = warp::path!("rotate" / i64 / usize)
-        .and(db_getter.clone())
-        .and(needs_cookie)
-        .and_then(rotate_tile);
 
     // POST /lobby_seat/$code/$seat_idx
     let lobby_seat = warp::path!("lobby_seat" / String / i8)
@@ -145,8 +141,7 @@ async fn main() {
             .or(check_login),
     );
     let posts = warp::post().and(
-        play.or(rotate)
-            .or(lobby_seat)
+        play.or(lobby_seat)
             .or(login)
             .or(register)
             .or(logout)
@@ -279,27 +274,13 @@ async fn get_lobby_json(
 }
 
 async fn play_tile(
-    game_id: i64,
-    idx: usize,
+    params: webapp::TurnParams,
     db: Database,
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     let mut app = db.lock().await;
-    Ok(match app.take_turn(game_id, &username, idx) {
+    Ok(match app.take_turn(params, &username) {
         // TODO: when game is over, redirect to an endgame page
-        Ok(msg) => msg.to_owned(),
-        Err(e) => e.to_string(),
-    })
-}
-
-async fn rotate_tile(
-    game_id: i64,
-    tile_idx: usize,
-    db: Database,
-    username: String,
-) -> WarpResult<impl warp::Reply> {
-    let mut app = db.lock().await;
-    Ok(match app.rotate_tile(game_id, &username, tile_idx) {
         Ok(msg) => msg.to_owned(),
         Err(e) => e.to_string(),
     })

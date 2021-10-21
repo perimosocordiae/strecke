@@ -1,5 +1,6 @@
+use crate::agent;
 use crate::board::{Board, Position};
-use crate::tiles::{all_tiles, Tile};
+use crate::tiles::{all_tiles, Direction, Tile};
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::cmp;
@@ -12,14 +13,6 @@ pub struct Player {
     pub username: String,
     board_index: usize,
     tiles_in_hand: Vec<Tile>,
-}
-
-impl Player {
-    pub fn rotate_tile(&mut self, tile_idx: usize) {
-        // TODO: bounds check
-        let tile = &mut self.tiles_in_hand[tile_idx];
-        tile.rotate_left();
-    }
 }
 
 pub struct GameManager {
@@ -54,11 +47,12 @@ impl GameManager {
         });
         Ok(())
     }
-    pub fn take_turn(&mut self, tile_index: usize) -> usize {
+    pub fn take_turn(&mut self, tile_index: usize, facing: Direction) -> usize {
         let bidx = self.players[self.current_player_idx].board_index;
         {
             let p = &mut self.players[self.current_player_idx];
-            self.board.play_tile(bidx, &p.tiles_in_hand[tile_index]);
+            self.board
+                .play_tile(bidx, &p.tiles_in_hand[tile_index], facing);
             p.tiles_in_hand.remove(tile_index);
         }
         let dead_players: Vec<usize> = self
@@ -111,16 +105,20 @@ impl GameManager {
         if self.players.len() > 1
             && self.current_player().username.starts_with("AI player #")
         {
-            // Just play the first tile, no matter what.
-            return self.take_turn(0);
+            let mut bidxs: Vec<usize> =
+                self.players.iter().map(|p| p.board_index).collect();
+            bidxs.swap(self.current_player_idx, 0);
+            let ai_move = agent::select_tile(
+                &self.board,
+                &bidxs,
+                &self.current_player().tiles_in_hand,
+            );
+            return self.take_turn(ai_move.0, ai_move.1);
         }
         self.players.len()
     }
     pub fn current_player(&self) -> &Player {
         &self.players[self.current_player_idx]
-    }
-    pub fn mut_player(&mut self, player_name: &str) -> Option<&mut Player> {
-        self.players.iter_mut().find(|p| p.username == player_name)
     }
     pub fn get_player(&self, player_name: &str) -> Option<&Player> {
         self.players.iter().find(|&p| p.username == player_name)

@@ -1,5 +1,6 @@
 use crate::game::GameManager;
 use crate::lobby;
+use crate::tiles::Direction;
 use argon2::{self, Config};
 use chrono::Utc;
 use rand::Rng;
@@ -13,6 +14,13 @@ pub struct UserCredentials {
     username: String,
     #[serde(with = "serde_bytes")]
     password: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+pub struct TurnParams {
+    game_id: i64,
+    idx: usize,
+    facing: Direction,
 }
 
 #[derive(Serialize)]
@@ -202,29 +210,19 @@ impl AppState {
         self.games.get(&game_id)
     }
 
-    pub fn rotate_tile(
-        &mut self,
-        game_id: i64,
-        username: &str,
-        tile_idx: usize,
-    ) -> Result<&str> {
-        let game = self.games.get_mut(&game_id).ok_or("Invalid game ID")?;
-        let player = game.mut_player(&username).ok_or("No such player")?;
-        player.rotate_tile(tile_idx);
-        Ok("OK")
-    }
-
     pub fn take_turn(
         &mut self,
-        game_id: i64,
+        params: TurnParams,
         username: &str,
-        idx: usize,
     ) -> Result<&str> {
-        let game = self.games.get_mut(&game_id).ok_or("Invalid game ID")?;
+        let game = self
+            .games
+            .get_mut(&params.game_id)
+            .ok_or("Invalid game ID")?;
         if game.current_player().username != username {
             return Ok("not your turn");
         }
-        let num_alive = game.take_turn(idx);
+        let num_alive = game.take_turn(params.idx, params.facing);
         if num_alive >= 2 {
             return Ok("OK");
         }
@@ -237,12 +235,12 @@ impl AppState {
             [
                 serde_json::to_string(&game.board)?,
                 now.to_rfc3339(),
-                game_id.to_string(),
+                params.game_id.to_string(),
             ],
         )?;
         let players_json = self.conn.query_row(
             "SELECT player_ids FROM games WHERE id = ?1 LIMIT 1",
-            [game_id.to_string()],
+            [params.game_id.to_string()],
             |row| row.get::<usize, String>(0),
         )?;
         let player_names: Vec<String> = serde_json::from_str(&players_json)?;

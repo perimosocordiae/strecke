@@ -29,10 +29,10 @@ impl Position {
             Direction::West => (self.row, self.col - 1),
         }
     }
-    fn update(&mut self, r: i8, c: i8, tile: &Tile) {
+    fn update(&mut self, r: i8, c: i8, tile: &Tile, facing: Direction) {
         self.row = r;
         self.col = c;
-        self.port = tile.traverse(self.port);
+        self.port = tile.traverse(self.port, facing);
     }
 }
 
@@ -49,7 +49,7 @@ fn test_is_valid_start() {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Board {
-    grid: [[Option<Tile>; 6]; 6],
+    grid: [[Option<(Tile, Direction)>; 6]; 6],
     pub players: Vec<Position>,
 }
 
@@ -67,11 +67,16 @@ impl Board {
         self.players.push(pos);
         Ok(self.players.len() - 1)
     }
-    pub fn play_tile(&mut self, player_idx: usize, tile: &Tile) {
+    pub fn play_tile(
+        &mut self,
+        player_idx: usize,
+        tile: &Tile,
+        facing: Direction,
+    ) {
         let pos = &mut self.players[player_idx];
         let (row, col) = pos.next_tile_position();
-        pos.update(row, col, &tile);
-        self.grid[row as usize][col as usize] = Some(*tile);
+        pos.update(row, col, &tile, facing);
+        self.grid[row as usize][col as usize] = Some((*tile, facing));
         self.move_players();
     }
     // TODO: record the trajectory of each player?
@@ -89,7 +94,7 @@ impl Board {
                 } else {
                     match self.grid[r as usize][c as usize] {
                         // Hit another tile, traverse and keep looping.
-                        Some(t) => pos.update(r, c, &t),
+                        Some((t, facing)) => pos.update(r, c, &t, facing),
                         // Hit a blank cell, stop iterating.
                         None => break,
                     }
