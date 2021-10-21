@@ -40,6 +40,10 @@
   transition-duration: 0.5s;
   transition-property: transform;
 }
+.board .target svg {
+  transition-duration: 0.5s;
+  transition-property: transform;
+}
 
 .choice {
   display: grid;
@@ -51,13 +55,13 @@
 }
 
 .East {
-  transform: rotate(90deg);
+  transform: rotate(-270deg);
 }
 .South {
-  transform: rotate(180deg);
+  transform: rotate(-180deg);
 }
 .West {
-  transform: rotate(270deg);
+  transform: rotate(-90deg);
 }
 
 .played {

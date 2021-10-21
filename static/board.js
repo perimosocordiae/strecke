@@ -38,7 +38,14 @@ function playTile(tileIdx) {
 function rotateTile(tileIdx) {
   fetch(`/rotate/${gameId}/${tileIdx}`, { method: 'POST' }).then(response => {
     if (response.ok) {
-      fetchJson(`/hand/${gameId}`, renderHand);
+      fetchJson(`/hand/${gameId}`, (hand) => {
+        renderHand(hand);
+        // Trigger target tile update manually.
+        let targetTile = document.querySelector('.board > .target');
+        if (targetTile.firstChild) {
+          targetTile.firstChild.classList.value = hand.tiles_in_hand[tileIdx].facing;
+        }
+      });
     }
   });
 }
@@ -52,7 +59,10 @@ function renderHand(hand) {
   let subtitle = document.getElementsByClassName('subtitle')[0];
   subtitle.innerText =
     `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
-  let [row, col] = playerPositions[hand.board_index];
+  if (!document.querySelector('.board > .target')) {
+    let [row, col] = playerPositions[hand.board_index];
+    document.querySelector(`.board > .r${row}.c${col}`).classList.add('target');
+  }
   let handContainer = document.getElementsByClassName('hand')[0];
   const handSize = hand.tiles_in_hand.length;
   for (let idx = 0; idx < handSize; ++idx) {
@@ -81,12 +91,12 @@ function renderHand(hand) {
       handContainer.appendChild(wrap);
     }
     wrap.onmouseenter = () => {
-      let targetTile = document.querySelector(`.board > .r${row}.c${col}`);
+      let targetTile = document.querySelector('.board > .target');
       targetTile.innerHTML = '';
       targetTile.appendChild(svg.cloneNode(true));
     };
     wrap.onmouseleave = () => {
-      document.querySelector(`.board > .r${row}.c${col}`).innerHTML = '';
+      document.querySelector('.board > .target').innerHTML = '';
     };
   }
   while (handContainer.children.length > handSize) {
