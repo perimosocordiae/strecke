@@ -155,6 +155,7 @@ function renderBoard(board) {
         while (elt.firstChild) {
           elt.removeChild(elt.firstChild);
         }
+        elt.classList.remove('target');
         if (tile) {
           elt.classList.add('played');
           elt.appendChild(renderTile(tile));
@@ -163,6 +164,7 @@ function renderBoard(board) {
         }
       }
     }
+    boardContainer.querySelectorAll('.token').forEach(e => e.remove());
   }
   for (const [idx, player] of board.players.entries()) {
     playerPositions[idx] = nextPosition(player);
