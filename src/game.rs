@@ -107,6 +107,13 @@ impl GameManager {
             self.current_player_idx += 1;
             self.current_player_idx %= self.players.len();
         }
+        // HACK: Handle AI player moves.
+        if self.players.len() > 1
+            && self.current_player().username.starts_with("AI player #")
+        {
+            // Just play the first tile, no matter what.
+            return self.take_turn(0);
+        }
         self.players.len()
     }
     pub fn current_player(&self) -> &Player {
