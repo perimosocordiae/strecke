@@ -1,5 +1,6 @@
 'use strict';
 let playerPositions = [];
+let rotations = [];
 let gameId = 0;
 let ws = null;
 
@@ -18,7 +19,13 @@ function bodyLoaded() {
 }
 
 function playTile(tileIdx) {
-  fetch(`/play/${gameId}/${tileIdx}`, { method: 'POST' }).then(response => {
+  fetch('/play', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      game_id: +gameId, idx: tileIdx, facing: rotations[tileIdx],
+    }),
+  }).then(response => {
     if (response.ok) {
       fetchJson(`/board/${gameId}`, (board) => {
         renderBoard(board);
@@ -35,19 +42,20 @@ function playTile(tileIdx) {
   });
 }
 
+const ROTATE = {
+  North: 'West',
+  West: 'South',
+  South: 'East',
+  East: 'North',
+}
+
 function rotateTile(tileIdx) {
-  fetch(`/rotate/${gameId}/${tileIdx}`, { method: 'POST' }).then(response => {
-    if (response.ok) {
-      fetchJson(`/hand/${gameId}`, (hand) => {
-        renderHand(hand);
-        // Trigger target tile update manually.
-        let targetTile = document.querySelector('.board > .target');
-        if (targetTile.firstChild) {
-          targetTile.firstChild.classList.value = hand.tiles_in_hand[tileIdx].facing;
-        }
-      });
-    }
-  });
+  let new_facing = ROTATE[rotations[tileIdx]];
+  rotations[tileIdx] = new_facing;
+  let handSvg = document.querySelector(`.hand .choice:nth-child(${tileIdx + 1}) svg`);
+  if (handSvg) handSvg.classList.value = new_facing;
+  let targetSvg = document.querySelector('.board > .target > svg');
+  if (targetSvg) targetSvg.classList.value = new_facing;
 }
 
 function renderHand(hand) {
@@ -70,13 +78,14 @@ function renderHand(hand) {
     if (idx < handContainer.children.length) {
       wrap = handContainer.children[idx];
       svg = wrap.firstChild.firstChild;
-      renderTile(hand.tiles_in_hand[idx], svg);
+      renderTile(hand.tiles_in_hand[idx], rotations[idx], svg);
     } else {
+      rotations.push('North');
       wrap = document.createElement('div');
       wrap.classList.add('choice');
       let elt = document.createElement('div');
       elt.classList.add('tile', `h${idx}`);
-      svg = renderTile(hand.tiles_in_hand[idx]);
+      svg = renderTile(hand.tiles_in_hand[idx], rotations[idx]);
       elt.appendChild(svg);
       elt.onclick = () => rotateTile(idx);
       wrap.appendChild(elt);
@@ -126,10 +135,9 @@ function renderBoard(board) {
       for (let col = 0; col < gridRow.length; ++col) {
         let elt = document.createElement('div');
         elt.classList.add('tile', `r${row}`, `c${col}`);
-        let tile = gridRow[col];
-        if (tile) {
+        if (gridRow[col]) {
           elt.classList.add('played');
-          elt.appendChild(renderTile(tile));
+          elt.appendChild(renderTile(...gridRow[col]));
         }
         boardContainer.appendChild(elt);
       }
@@ -150,15 +158,14 @@ function renderBoard(board) {
     for (let row = 0; row < board.grid.length; ++row) {
       const gridRow = board.grid[row];
       for (let col = 0; col < gridRow.length; ++col) {
-        let tile = gridRow[col];
         let elt = boardContainer.querySelector(`.tile.r${row}.c${col}`);
         while (elt.firstChild) {
           elt.removeChild(elt.firstChild);
         }
         elt.classList.remove('target');
-        if (tile) {
+        if (gridRow[col]) {
           elt.classList.add('played');
-          elt.appendChild(renderTile(tile));
+          elt.appendChild(renderTile(...gridRow[col]));
         } else {
           elt.classList.remove('played');
         }
@@ -190,14 +197,14 @@ function nextPosition(player) {
   return [player.row, player.col - 1];
 }
 
-function renderTile(tile, svg) {
+function renderTile(tile, facing, svg) {
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 99 99');
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    svg.classList.add(tile.facing);
+    svg.classList.add(facing);
   } else {
-    svg.classList.value = tile.facing;
+    svg.classList.value = facing;
     svg.removeChild(svg.firstChild);
   }
   let code = '';
