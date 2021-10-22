@@ -191,18 +191,30 @@ function renderBoard(board) {
     boardContainer.querySelectorAll('.token').forEach(e => e.remove());
   }
   for (const [idx, playerTrail] of board.players.entries()) {
-    for (const player of playerTrail) {
-      const [x, y] = PORT_LOCATIONS[player.port];
-      let tile = boardContainer.querySelector(`.r${player.row}.c${player.col}`);
-      let token = document.createElement('div');
-      token.classList.add('token');
-      token.style.backgroundColor = PLAYER_COLORS[idx];
-      token.style.top = `${y}%`;
-      token.style.left = `${x}%`;
-      tile.appendChild(token);
+    const color = PLAYER_COLORS[idx];
+    let tile, lastX, lastY;
+    for (const pos of playerTrail) {
+      const [x, y] = PORT_LOCATIONS[pos.port];
+      tile = boardContainer.querySelector(`.r${pos.row}.c${pos.col}`);
+      // hacky trail marker.
+      let marker = document.createElement('div');
+      marker.classList.add('marker');
+      marker.style.backgroundColor = color;
+      marker.style.top = `${y}%`;
+      marker.style.left = `${x}%`;
+      tile.appendChild(marker);
+      lastX = x;
+      lastY = y;
     }
-    const player = playerTrail[playerTrail.length - 1];
-    playerPositions[idx] = nextPosition(player);
+    const lastPos = playerTrail[playerTrail.length - 1];
+    playerPositions[idx] = nextPosition(lastPos);
+    // Mark the current position.
+    let token = document.createElement('div');
+    token.classList.add('token');
+    token.style.backgroundColor = color;
+    token.style.top = `${lastY}%`;
+    token.style.left = `${lastX}%`;
+    tile.appendChild(token);
   }
   return true;
 }
