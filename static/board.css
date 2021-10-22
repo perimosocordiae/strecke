@@ -5,6 +5,7 @@
   width: 90vw;
   max-width: 50em;
   margin: -4vw auto 0;
+  min-height: 6vw;
 }
 
 .board .tile {

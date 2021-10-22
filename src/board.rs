@@ -29,11 +29,6 @@ impl Position {
             Direction::West => (self.row, self.col - 1),
         }
     }
-    fn update(&mut self, r: i8, c: i8, tile: &Tile, facing: Direction) {
-        self.row = r;
-        self.col = c;
-        self.port = tile.traverse(self.port, facing);
-    }
 }
 
 #[test]
@@ -49,8 +44,10 @@ fn test_is_valid_start() {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Board {
+    // 2d array of tiles and their orientations
     grid: [[Option<(Tile, Direction)>; 6]; 6],
-    pub players: Vec<Position>,
+    // each player has a trail of positions, most recent at the end
+    pub players: Vec<Vec<Position>>,
 }
 
 impl Board {
@@ -64,7 +61,7 @@ impl Board {
         if !pos.is_valid_start() {
             return Err(format!("Invalid starting position: {:?}", pos));
         }
-        self.players.push(pos);
+        self.players.push(vec![pos]);
         Ok(self.players.len() - 1)
     }
     pub fn play_tile(
@@ -73,31 +70,40 @@ impl Board {
         tile: &Tile,
         facing: Direction,
     ) {
-        let pos = &mut self.players[player_idx];
-        let (row, col) = pos.next_tile_position();
-        pos.update(row, col, &tile, facing);
-        self.grid[row as usize][col as usize] = Some((*tile, facing));
-        self.move_players();
-    }
-    // TODO: record the trajectory of each player?
-    fn move_players(&mut self) {
-        for pos in self.players.iter_mut() {
-            while pos.alive {
+        // Add the new tile in the target location.
+        if let Some(pos) = self.players[player_idx].last() {
+            let (row, col) = pos.next_tile_position();
+            self.grid[row as usize][col as usize] = Some((*tile, facing));
+        }
+        // Move all players.
+        for trail in self.players.iter_mut() {
+            while let Some(pos) = trail.last() {
                 let (d_row, d_col) = pos.port.facing_side().grid_offsets();
-                let r = pos.row + d_row;
-                let c = pos.col + d_col;
-                if !(0..6).contains(&r) || !(0..6).contains(&c) {
-                    pos.row = r;
-                    pos.col = c;
-                    pos.port = pos.port.flip();
-                    pos.alive = false;
-                } else {
-                    match self.grid[r as usize][c as usize] {
-                        // Hit another tile, traverse and keep looping.
-                        Some((t, facing)) => pos.update(r, c, &t, facing),
-                        // Hit a blank cell, stop iterating.
-                        None => break,
+                let row = pos.row + d_row;
+                let col = pos.col + d_col;
+                if !(0..6).contains(&row) || !(0..6).contains(&col) {
+                    let port = pos.port.flip();
+                    trail.push(Position {
+                        row,
+                        col,
+                        port,
+                        alive: false,
+                    });
+                    break;
+                }
+                match self.grid[row as usize][col as usize] {
+                    // Hit another tile, traverse and keep looping.
+                    Some((t, facing)) => {
+                        let port = t.traverse(pos.port, facing);
+                        trail.push(Position {
+                            row,
+                            col,
+                            port,
+                            alive: true,
+                        });
                     }
+                    // Hit a blank cell, stop iterating.
+                    None => break,
                 }
             }
         }
@@ -124,5 +130,6 @@ fn test_add_players() {
         Ok(0)
     );
     assert_eq!(b.players.len(), 1);
-    assert_eq!(b.players[0].port, Port::D);
+    assert_eq!(b.players[0].len(), 1);
+    assert_eq!(b.players[0][0].port, Port::D);
 }

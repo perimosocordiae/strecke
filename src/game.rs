@@ -60,7 +60,7 @@ impl GameManager {
             .players
             .iter()
             .enumerate()
-            .filter(|(_, pos)| !pos.alive)
+            .filter(|(_, trail)| !trail.last().unwrap().alive)
             .map(|(idx, _)| idx)
             .collect();
         // Check for any newly-dead players.

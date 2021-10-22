@@ -6,8 +6,11 @@ let ws = null;
 
 function bodyLoaded() {
   gameId = (new URL(window.location)).searchParams.get('id');
-  fetchJson(`/board/${gameId}`, renderBoard);
-  fetchJson(`/hand/${gameId}`, renderHand);
+  fetchJson(`/board/${gameId}`, (board) => {
+    if (renderBoard(board)) {
+      fetchJson(`/hand/${gameId}`, renderHand);
+    }
+  });
 
   ws = new WebSocket(`ws://${location.host}/ws/${gameId}`);
   ws.onopen = () => console.log('Opened WS connection.');
@@ -15,8 +18,9 @@ function bodyLoaded() {
     const msg = JSON.parse(event.data);
     console.log('Got WS message:', msg);
     if (msg.action === 'Update') {
-      renderBoard(msg.board);
-      fetchJson(`/hand/${gameId}`, renderHand);
+      if (renderBoard(msg.board)) {
+        fetchJson(`/hand/${gameId}`, renderHand);
+      }
     } else if (msg.action === 'GameOver') {
       renderBoard(msg.board);
       document.querySelector('.hand').innerHTML = '';
@@ -63,6 +67,10 @@ function rotateTile(tileIdx) {
 }
 
 function renderHand(hand) {
+  if (hand === "Game not found.") {
+    renderError(hand);
+    return;
+  }
   // Hack to ensure renderBoard ran first on pageload.
   if (!playerPositions[hand.board_index]) {
     setTimeout(() => renderHand(hand), 10);
@@ -121,6 +129,11 @@ const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
+  if (board === "Game not found.") {
+    boardContainer.innerHTML = '';
+    renderError(board);
+    return false;
+  }
   if (boardContainer.children.length == 0) {
     boardContainer.appendChild(document.createElement('div'));
     for (let col = 0; col < 6; ++col) {
@@ -177,17 +190,21 @@ function renderBoard(board) {
     }
     boardContainer.querySelectorAll('.token').forEach(e => e.remove());
   }
-  for (const [idx, player] of board.players.entries()) {
+  for (const [idx, playerTrail] of board.players.entries()) {
+    for (const player of playerTrail) {
+      const [x, y] = PORT_LOCATIONS[player.port];
+      let tile = boardContainer.querySelector(`.r${player.row}.c${player.col}`);
+      let token = document.createElement('div');
+      token.classList.add('token');
+      token.style.backgroundColor = PLAYER_COLORS[idx];
+      token.style.top = `${y}%`;
+      token.style.left = `${x}%`;
+      tile.appendChild(token);
+    }
+    const player = playerTrail[playerTrail.length - 1];
     playerPositions[idx] = nextPosition(player);
-    const [x, y] = PORT_LOCATIONS[player.port];
-    let tile = boardContainer.querySelector(`.r${player.row}.c${player.col}`);
-    let token = document.createElement('div');
-    token.classList.add('token');
-    token.style.backgroundColor = PLAYER_COLORS[idx];
-    token.style.top = `${y}%`;
-    token.style.left = `${x}%`;
-    tile.appendChild(token);
   }
+  return true;
 }
 
 function nextPosition(player) {
@@ -220,15 +237,6 @@ function makeBorder(p0, p1) {
   }
   svg.appendChild(makePath(code));
   return svg;
-}
-
-function makeCircle(cx, cy, radius, fillColor) {
-  let c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  c.setAttribute('fill', fillColor);
-  c.setAttribute('cx', cx);
-  c.setAttribute('cy', cy);
-  c.setAttribute('r', radius);
-  return c;
 }
 
 function fetchJson(url, cb) {
