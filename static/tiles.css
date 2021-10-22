@@ -1,0 +1,15 @@
+.tile {
+  display: flex;
+  border: 1px solid black;
+  background-color:rgb(204, 172, 145);
+  border-radius: 0.25em;
+}
+.East {
+  transform: rotate(-270deg);
+}
+.South {
+  transform: rotate(-180deg);
+}
+.West {
+  transform: rotate(-90deg);
+}
