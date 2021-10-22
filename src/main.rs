@@ -76,7 +76,7 @@ async fn main() {
     // GET /check_login
     let check_login = warp::path("check_login").and(needs_cookie).map(|_| "OK");
 
-    // POST /new_game => JSON
+    // POST /new_lobby => JSON
     let new_lobby = warp::path("new_lobby")
         .and(db_getter.clone())
         .and(needs_cookie)
@@ -278,12 +278,8 @@ async fn play_tile(
     db: Database,
     username: String,
 ) -> WarpResult<impl warp::Reply> {
-    let mut app = db.lock().await;
-    Ok(match app.take_turn(params, &username) {
-        // TODO: when game is over, redirect to an endgame page
-        Ok(msg) => msg.to_owned(),
-        Err(e) => e.to_string(),
-    })
+    db.lock().await.take_turn(params, &username);
+    Ok("OK")
 }
 
 async fn take_seat(

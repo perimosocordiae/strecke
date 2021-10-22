@@ -14,8 +14,26 @@ function bodyLoaded() {
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     console.log('Got WS message:', msg);
+    if (msg.action === 'Update') {
+      renderBoard(msg.board);
+      fetchJson(`/hand/${gameId}`, renderHand);
+    } else if (msg.action === 'GameOver') {
+      renderBoard(msg.board);
+      document.querySelector('.hand').innerHTML = '';
+      if (msg.winner) {
+        alert(`Game over: ${msg.winner} is the winner!`);
+      } else {
+        alert('Game over: everyone lost!');
+      }
+    } else if (msg.action === 'Error') {
+      renderError(msg.message);
+    }
   }
   ws.onclose = () => console.log('Closed WS connection.');
+}
+
+function renderError(message) {
+  document.getElementById('error').innerText = message;
 }
 
 function playTile(tileIdx) {
@@ -25,20 +43,6 @@ function playTile(tileIdx) {
     body: JSON.stringify({
       game_id: +gameId, idx: tileIdx, facing: rotations[tileIdx],
     }),
-  }).then(response => {
-    if (response.ok) {
-      fetchJson(`/board/${gameId}`, (board) => {
-        renderBoard(board);
-        response.text().then(text => {
-          if (text != "OK") {
-            document.getElementsByClassName('hand')[0].innerHTML = '';
-            alert(text);
-          } else {
-            fetchJson(`/hand/${gameId}`, renderHand);
-          }
-        });
-      });
-    }
   });
 }
 

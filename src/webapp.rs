@@ -1,3 +1,4 @@
+use crate::board;
 use crate::game::GameManager;
 use crate::lobby;
 use crate::tiles::Direction;
@@ -29,6 +30,27 @@ pub enum LobbyResponse<'a> {
     Update { lobby: &'a lobby::Lobby },
     Start { url: String },
     Error { message: String },
+}
+
+#[derive(Serialize)]
+#[serde(tag = "action")]
+pub enum TurnResponse<'a> {
+    Update {
+        board: &'a board::Board,
+    },
+    GameOver {
+        board: &'a board::Board,
+        winner: String,
+    },
+    Error {
+        message: String,
+    },
+}
+
+enum GameStatus {
+    Ongoing,
+    Winner(String),
+    EveryoneLoses,
 }
 
 type WebsocketSender = tokio::sync::mpsc::UnboundedSender<warp::ws::Message>;
@@ -69,6 +91,15 @@ impl fmt::Display for NotHostError {
     }
 }
 impl error::Error for NotHostError {}
+
+#[derive(Debug)]
+struct NotYourTurnError;
+impl fmt::Display for NotYourTurnError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Not your turn")
+    }
+}
+impl error::Error for NotYourTurnError {}
 
 impl AppState {
     pub fn new(db_path: &str) -> Result<Self> {
@@ -210,21 +241,21 @@ impl AppState {
         self.games.get(&game_id)
     }
 
-    pub fn take_turn(
+    fn take_turn_helper(
         &mut self,
         params: TurnParams,
         username: &str,
-    ) -> Result<&str> {
+    ) -> Result<(&board::Board, GameStatus)> {
         let game = self
             .games
             .get_mut(&params.game_id)
             .ok_or("Invalid game ID")?;
         if game.current_player().username != username {
-            return Ok("not your turn");
+            return Err(NotYourTurnError.into());
         }
         let num_alive = game.take_turn(params.idx, params.facing);
         if num_alive >= 2 {
-            return Ok("OK");
+            return Ok((&game.board, GameStatus::Ongoing));
         }
         // Game is over, record the result in the DB.
         let now = Utc::now();
@@ -252,12 +283,44 @@ impl AppState {
                 [now.to_rfc3339(), name],
             )?;
         }
-        // TODO: signal that the game is over in a better way
-        if num_alive == 1 {
-            // We have a winner, named game.current_player().username
-            return Ok("Somebody won!");
+        Ok((
+            &game.board,
+            if num_alive == 1 {
+                GameStatus::Winner(game.current_player().username.clone())
+            } else {
+                GameStatus::EveryoneLoses
+            },
+        ))
+    }
+
+    pub fn take_turn(&mut self, params: TurnParams, username: &str) {
+        let room = &params.game_id.to_string();
+        match self.take_turn_helper(params, username) {
+            Ok((board, status)) => {
+                let resp = match status {
+                    GameStatus::Ongoing => {
+                        TurnResponse::Update { board: &board }
+                    }
+                    GameStatus::Winner(winner) => TurnResponse::GameOver {
+                        winner,
+                        board: &board,
+                    },
+                    GameStatus::EveryoneLoses => TurnResponse::GameOver {
+                        winner: "".to_owned(),
+                        board: &board,
+                    },
+                };
+                let msg = serde_json::to_string(&resp).unwrap();
+                self.broadcast_to_room(msg, room, None);
+            }
+            Err(e) => {
+                let msg = serde_json::to_string(&TurnResponse::Error {
+                    message: e.to_string(),
+                })
+                .unwrap();
+                self.send_to_user(msg, room, username);
+            }
         }
-        Ok("Everyone loses :(")
     }
 
     pub fn sign_up(
