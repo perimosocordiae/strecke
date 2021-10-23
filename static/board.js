@@ -1,10 +1,7 @@
 'use strict';
 const ROTATE = {
-  North: 'West',
-  West: 'South',
-  South: 'East',
-  East: 'North',
-}
+  North: 'West', West: 'South', South: 'East', East: 'North'
+};
 const PORT_FLIPS = {
   'A': 'F', 'B': 'E', 'C': 'H', 'D': 'G', 'E': 'B', 'F': 'A', 'G': 'D', 'H': 'C'
 };
@@ -40,6 +37,7 @@ function bodyLoaded() {
     } else if (msg.action === 'GameOver') {
       renderBoard(msg.board);
       document.querySelector('.hand').innerHTML = '';
+      // TODO: show a proper game over page
       if (msg.winner) {
         alert(`Game over: ${msg.winner} is the winner!`);
       } else {
@@ -76,15 +74,7 @@ function rotateTile(tileIdx) {
 }
 
 function renderHand(hand) {
-  if (hand === "Game not found.") {
-    renderError(hand);
-    return;
-  }
-  // Hack to ensure renderBoard ran first on pageload.
-  if (!playerPositions[hand.board_index]) {
-    setTimeout(() => renderHand(hand), 10);
-    return;
-  }
+  if (!hand.username) return renderError(hand);
   let subtitle = document.getElementsByClassName('subtitle')[0];
   subtitle.innerText =
     `${hand.username}'s Tiles (${PLAYER_COLORS[hand.board_index]})`;
@@ -132,7 +122,7 @@ function renderHand(hand) {
 
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
-  if (board === "Game not found.") {
+  if (!board.grid) {
     boardContainer.innerHTML = '';
     renderError(board);
     return false;
