@@ -21,12 +21,21 @@ impl Position {
             Port::G | Port::H => self.col == 6,
         }
     }
-    fn next_tile_position(&self) -> (i8, i8) {
+    fn next_tile_coords(&self) -> (i8, i8) {
         match self.port.facing_side() {
             Direction::North => (self.row - 1, self.col),
             Direction::South => (self.row + 1, self.col),
             Direction::East => (self.row, self.col + 1),
             Direction::West => (self.row, self.col - 1),
+        }
+    }
+    pub fn next_tile_position(&self) -> Self {
+        let (row, col) = self.next_tile_coords();
+        Self {
+            row,
+            col,
+            port: self.port.flip(),
+            alive: self.alive,
         }
     }
 }
@@ -57,6 +66,15 @@ impl Board {
             players: vec![],
         }
     }
+    pub fn get_tile(
+        &self,
+        pos: &Position,
+    ) -> Option<&Option<(Tile, Direction)>> {
+        if !(0..6).contains(&pos.row) || !(0..6).contains(&pos.col) {
+            return None;
+        }
+        Some(&self.grid[pos.row as usize][pos.col as usize])
+    }
     pub fn add_player(&mut self, pos: Position) -> Result<usize, String> {
         if !pos.is_valid_start() {
             return Err(format!("Invalid starting position: {:?}", pos));
@@ -72,7 +90,7 @@ impl Board {
     ) {
         // Add the new tile in the target location.
         if let Some(pos) = self.players[player_idx].last() {
-            let (row, col) = pos.next_tile_position();
+            let (row, col) = pos.next_tile_coords();
             self.grid[row as usize][col as usize] = Some((*tile, facing));
         }
         // Move all players.
@@ -94,7 +112,7 @@ impl Board {
                 match self.grid[row as usize][col as usize] {
                     // Hit another tile, traverse and keep looping.
                     Some((t, facing)) => {
-                        let port = t.traverse(pos.port, facing);
+                        let port = t.traverse(pos.port.flip(), facing);
                         trail.push(Position {
                             row,
                             col,

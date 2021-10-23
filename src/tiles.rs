@@ -9,6 +9,16 @@ pub enum Direction {
 }
 
 impl Direction {
+    pub fn all() -> impl Iterator<Item = Direction> {
+        [
+            Direction::North,
+            Direction::South,
+            Direction::East,
+            Direction::West,
+        ]
+        .iter()
+        .copied()
+    }
     pub fn grid_offsets(&self) -> (i8, i8) {
         match self {
             Direction::North => (-1, 0),
@@ -101,7 +111,7 @@ pub struct Tile {
 
 impl Tile {
     pub fn traverse(&self, from: Port, facing: Direction) -> Port {
-        let start = facing.normalize_port(from.flip());
+        let start = facing.normalize_port(from);
         for (p1, p2) in self.layout.iter() {
             if start == *p1 {
                 return facing.unnormalize_port(*p2);
