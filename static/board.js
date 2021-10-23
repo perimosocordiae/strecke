@@ -110,10 +110,6 @@ function renderHand(hand) {
       elt.appendChild(svg);
       elt.onclick = () => rotateTile(idx);
       wrap.appendChild(elt);
-      let rotBtn = document.createElement('button');
-      rotBtn.innerText = 'Rotate';
-      rotBtn.onclick = () => rotateTile(idx);
-      wrap.appendChild(rotBtn);
       let playBtn = document.createElement('button');
       playBtn.innerText = 'Play';
       playBtn.onclick = () => playTile(idx);

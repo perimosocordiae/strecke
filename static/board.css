@@ -28,7 +28,6 @@
   max-width: 9em;
   border-radius: 0.5em;
   background-color: rgb(243, 178, 12);
-  grid-column: span 2;
 }
 .hand .tile svg {
   transition-duration: 0.5s;
@@ -40,8 +39,8 @@
 }
 
 .choice {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-flow: column nowrap;
 }
 
 .choice .tile:hover {

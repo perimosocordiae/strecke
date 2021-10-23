@@ -14,11 +14,10 @@ Game details:
 
 TODO list:
 
- - websockets!
- - lobby page improvements, game over page, stats page
+ - lobby page improvements
+ - game over page
+ - stats page
  - AI agents
- - animations for player moves
- - colored player trails
- - drag/drop controls for playing tiles (tap to rotate)
- - tile preview on hover/touch
+ - drag/drop controls for playing tiles
+ - tile preview on touch/drag
 
