@@ -15,14 +15,12 @@
 </div>
 <div id="hasAuth" class="content" style="display: none;">
   <form method="POST" action="/new_lobby">
-    <input type="submit" value="Start a new game">
+    <input type="submit" value="Host game">
   </form>
-  |
   <form method="GET" action="/lobby">
-    <input type="text" name="code" placeholder="Lobby code" size=10>
-    <input type="submit" value="Join">
+    <input type="text" name="code" placeholder="Lobby code" size=10 required>
+    <input type="submit" value="Join lobby">
   </form>
-  |
   <form method="POST" action="/logout">
     <input type="submit" value="Log out">
   </form>
