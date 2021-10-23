@@ -217,7 +217,7 @@ function renderBoard(board) {
 
 function unnormalizePort(port, facing) {
   if (facing == 'North') return port;
-  if (facing == 'South') return PORT_FLIPS[port];
+  if (facing == 'South') return PORT_LEFT_TURNS[PORT_LEFT_TURNS[port]];
   if (facing == 'East') return PORT_LEFT_TURNS[port];
   if (facing == 'West') return PORT_RIGHT_TURNS[port];
   throw new Error(`Invalid facing: ${facing}`);
