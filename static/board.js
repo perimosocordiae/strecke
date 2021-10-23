@@ -1,8 +1,24 @@
 'use strict';
+const ROTATE = {
+  North: 'West',
+  West: 'South',
+  South: 'East',
+  East: 'North',
+}
+const PORT_FLIPS = {
+  'A': 'F', 'B': 'E', 'C': 'H', 'D': 'G', 'E': 'B', 'F': 'A', 'G': 'D', 'H': 'C'
+};
+const PORT_LEFT_TURNS = {
+  'A': 'G', 'B': 'H', 'C': 'A', 'D': 'B', 'E': 'C', 'F': 'D', 'G': 'E', 'H': 'F'
+};
+const PORT_RIGHT_TURNS = {
+  'A': 'C', 'B': 'D', 'C': 'E', 'D': 'F', 'E': 'G', 'F': 'H', 'G': 'A', 'H': 'B'
+};
+const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
+
 let playerPositions = [];
 let rotations = [];
 let gameId = 0;
-let ws = null;
 
 function bodyLoaded() {
   gameId = (new URL(window.location)).searchParams.get('id');
@@ -12,7 +28,7 @@ function bodyLoaded() {
     }
   });
 
-  ws = new WebSocket(`ws://${location.host}/ws/${gameId}`);
+  const ws = new WebSocket(`ws://${location.host}/ws/${gameId}`);
   ws.onopen = () => console.log('Opened WS connection.');
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -48,13 +64,6 @@ function playTile(tileIdx) {
       game_id: +gameId, idx: tileIdx, facing: rotations[tileIdx],
     }),
   });
-}
-
-const ROTATE = {
-  North: 'West',
-  West: 'South',
-  South: 'East',
-  East: 'North',
 }
 
 function rotateTile(tileIdx) {
@@ -125,8 +134,6 @@ function renderHand(hand) {
   }
 }
 
-const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
-
 function renderBoard(board) {
   let boardContainer = document.getElementsByClassName('board')[0];
   if (board === "Game not found.") {
@@ -190,33 +197,44 @@ function renderBoard(board) {
     }
     boardContainer.querySelectorAll('.token').forEach(e => e.remove());
   }
+  // Update player positions.
   for (const [idx, playerTrail] of board.players.entries()) {
     const color = PLAYER_COLORS[idx];
-    let tile, lastX, lastY;
+    let tileDiv;
     for (const pos of playerTrail) {
-      const [x, y] = PORT_LOCATIONS[pos.port];
-      tile = boardContainer.querySelector(`.r${pos.row}.c${pos.col}`);
-      // hacky trail marker.
-      let marker = document.createElement('div');
-      marker.classList.add('marker');
-      marker.style.backgroundColor = color;
-      marker.style.top = `${y}%`;
-      marker.style.left = `${x}%`;
-      tile.appendChild(marker);
-      lastX = x;
-      lastY = y;
+      tileDiv = boardContainer.querySelector(`.r${pos.row}.c${pos.col}`);
+      if (tileDiv.classList.contains('played')) {
+        // Add an svg path for the trail.
+        let [gridTile, facing] = board.grid[pos.row][pos.col];
+        let origPort = unnormalizePort(pos.port, facing);
+        let [p0, p1] = gridTile.layout.find(p => p.includes(origPort));
+        let trailPath = makePath(pathCode(p0, p1));
+        trailPath.setAttribute('stroke', color);
+        trailPath.setAttribute('stroke-width', 3);
+        tileDiv.firstChild.appendChild(trailPath);
+      }
     }
-    const lastPos = playerTrail[playerTrail.length - 1];
-    playerPositions[idx] = nextPosition(lastPos);
+    const pos = playerTrail[playerTrail.length - 1];
+    playerPositions[idx] = nextPosition(pos);
     // Mark the current position.
+    const [x, y] = PORT_LOCATIONS[pos.port];
     let token = document.createElement('div');
     token.classList.add('token');
+    if (!pos.alive) token.classList.add('dead');
     token.style.backgroundColor = color;
-    token.style.top = `${lastY}%`;
-    token.style.left = `${lastX}%`;
-    tile.appendChild(token);
+    token.style.top = `${y}%`;
+    token.style.left = `${x}%`;
+    tileDiv.appendChild(token);
   }
   return true;
+}
+
+function unnormalizePort(port, facing) {
+  if (facing == 'North') return port;
+  if (facing == 'South') return PORT_FLIPS[port];
+  if (facing == 'East') return PORT_LEFT_TURNS[port];
+  if (facing == 'West') return PORT_RIGHT_TURNS[port];
+  throw new Error(`Invalid facing: ${facing}`);
 }
 
 function nextPosition(player) {
