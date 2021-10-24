@@ -55,19 +55,12 @@ impl GameManager {
                 .play_tile(bidx, &p.tiles_in_hand[tile_index], facing);
             p.tiles_in_hand.remove(tile_index);
         }
-        let dead_players: Vec<usize> = self
-            .board
-            .players
-            .iter()
-            .enumerate()
-            .filter(|(_, trail)| !trail.last().unwrap().alive)
-            .map(|(idx, _)| idx)
-            .collect();
         // Check for any newly-dead players.
         let mut newly_dead = false;
         let mut idx = 0;
         while idx < self.players.len() {
-            if dead_players.contains(&self.players[idx].board_index) {
+            let bidx = self.players[idx].board_index;
+            if !self.board.players[bidx].last().unwrap().alive {
                 newly_dead = true;
                 // Remove this player from the active list.
                 let mut dead = self.players.remove(idx);

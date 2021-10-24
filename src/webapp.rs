@@ -298,16 +298,13 @@ impl AppState {
         match self.take_turn_helper(params, username) {
             Ok((board, status)) => {
                 let resp = match status {
-                    GameStatus::Ongoing => {
-                        TurnResponse::Update { board: &board }
+                    GameStatus::Ongoing => TurnResponse::Update { board },
+                    GameStatus::Winner(winner) => {
+                        TurnResponse::GameOver { winner, board }
                     }
-                    GameStatus::Winner(winner) => TurnResponse::GameOver {
-                        winner,
-                        board: &board,
-                    },
                     GameStatus::EveryoneLoses => TurnResponse::GameOver {
                         winner: "".to_owned(),
-                        board: &board,
+                        board,
                     },
                 };
                 let msg = serde_json::to_string(&resp).unwrap();

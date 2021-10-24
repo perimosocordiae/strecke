@@ -12,7 +12,7 @@ pub fn select_tile(
     let my_pos = board.players[my_idx].last().unwrap();
     for (i, tile) in hand.iter().enumerate() {
         for dir in Direction::all() {
-            let end_pos = follow_path(&board, &my_pos, &tile, dir);
+            let end_pos = follow_path(board, my_pos, tile, dir);
             if end_pos.alive {
                 return (i, dir);
             }
