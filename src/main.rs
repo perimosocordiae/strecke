@@ -73,8 +73,10 @@ async fn main() {
             )
         });
 
-    // GET /check_login
-    let check_login = warp::path("check_login").and(needs_cookie).map(|_| "OK");
+    // GET /check_login => username
+    let check_login = warp::path("check_login")
+        .and(needs_cookie)
+        .map(|username| username);
 
     // POST /new_lobby => JSON
     let new_lobby = warp::path("new_lobby")

@@ -1,7 +1,11 @@
 #lobby {
-  /* TODO: style this */
-  white-space: pre;
-  font-family: monospace;
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+}
+
+#lobby form {
+  display: inline-block;
 }
 
 #error {
