@@ -3,6 +3,7 @@ use crate::tiles::Port;
 use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 
+const MAX_PLAYERS: usize = 11;
 // No I,O
 static CODE_CHARS: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ";
 
@@ -74,8 +75,20 @@ impl Lobby {
         }
     }
 
-    fn host(&self) -> &String {
+    pub fn host(&self) -> &String {
         &self.names[0]
+    }
+
+    pub fn resize(&mut self, new_size: usize) -> Result<(), &str> {
+        if new_size > MAX_PLAYERS {
+            return Err("Too many players");
+        }
+        self.max_num_players = new_size;
+        if self.names.len() > new_size {
+            self.names.truncate(new_size);
+            self.start_positions.truncate(new_size);
+        }
+        Ok(())
     }
 
     pub fn take_seat(
@@ -115,8 +128,8 @@ impl Lobby {
     }
 
     pub fn run_pregame_checks(&self, username: &str) -> Result<(), &str> {
-        if self.max_num_players > 24 {
-            return Err("Lobby is too large (max size is 24)");
+        if self.max_num_players > MAX_PLAYERS {
+            return Err("Lobby has too many players");
         }
         if username != self.host() {
             return Err("Only the host can start the game");

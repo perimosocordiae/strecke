@@ -70,15 +70,28 @@ function renderLobby(data) {
     table.appendChild(tableRow);
   }
   lobbyDiv.appendChild(table);
-  if (isHost) {
-    // TODO: allow the host to add more players.
+  if (!isHost) return;
+  // Host-specific actions.
+  const hostDiv = document.createElement('div');
+  if (data.max_num_players < 11) {
+    const addPlayerButton = document.createElement('button');
+    addPlayerButton.innerText = 'Add Player';
+    addPlayerButton.onclick = () => setNumPlayers(data.max_num_players + 1);
+    hostDiv.appendChild(addPlayerButton);
   }
-  if (isInLobby && isHost) {
+  if (data.max_num_players > 2) {
+    const removePlayerButton = document.createElement('button');
+    removePlayerButton.innerText = 'Remove Player';
+    removePlayerButton.onclick = () => setNumPlayers(data.max_num_players - 1);
+    hostDiv.appendChild(removePlayerButton);
+  }
+  if (isInLobby) {
     const startGameButton = document.createElement('button');
     startGameButton.innerText = 'Start Game';
     startGameButton.onclick = startGame;
-    lobbyDiv.appendChild(startGameButton);
+    hostDiv.appendChild(startGameButton);
   }
+  lobbyDiv.appendChild(hostDiv);
 }
 
 function renderTakeSeatForm(parent, seat) {
@@ -114,4 +127,9 @@ function takeSeat() {
 function startGame() {
   renderError('');
   fetch(`/new_game/${LOBBY_CODE}`, { method: 'POST' });
+}
+
+function setNumPlayers(numPlayers) {
+  renderError('');
+  fetch(`/lobby_size/${LOBBY_CODE}/${numPlayers}`, { method: 'POST' });
 }

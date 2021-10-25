@@ -237,6 +237,43 @@ impl AppState {
         };
     }
 
+    fn resize_lobby_helper(
+        &mut self,
+        lobby_code: &str,
+        new_size: usize,
+        username: &str,
+    ) -> Result<&lobby::Lobby> {
+        let lobby = self.lobbies.get_mut(lobby_code).ok_or("No such lobby")?;
+        if lobby.host() != username {
+            return Err(NotHostError.into());
+        }
+        lobby.resize(new_size)?;
+        Ok(lobby)
+    }
+
+    pub fn resize_lobby(
+        &mut self,
+        lobby_code: &str,
+        new_size: usize,
+        username: &str,
+    ) {
+        match self.resize_lobby_helper(lobby_code, new_size, username) {
+            Ok(lobby) => {
+                let msg =
+                    serde_json::to_string(&LobbyResponse::Update { lobby })
+                        .unwrap();
+                self.broadcast_to_room(msg, lobby_code, None);
+            }
+            Err(e) => {
+                let msg = serde_json::to_string(&LobbyResponse::Error {
+                    message: e.to_string(),
+                })
+                .unwrap();
+                self.send_to_user(msg, lobby_code, username);
+            }
+        };
+    }
+
     pub fn game(&self, game_id: i64) -> Option<&GameManager> {
         self.games.get(&game_id)
     }

@@ -121,6 +121,12 @@ async fn main() {
         .and(needs_cookie)
         .and_then(take_seat);
 
+    // POST /lobby_size/$code/$size
+    let lobby_size = warp::path!("lobby_size" / String / usize)
+        .and(db_getter.clone())
+        .and(needs_cookie)
+        .and_then(resize_lobby);
+
     // GET /ws => websocket
     let ws = warp::path!("ws" / String)
         .and(warp::ws())
@@ -144,6 +150,7 @@ async fn main() {
     );
     let posts = warp::post().and(
         play.or(lobby_seat)
+            .or(lobby_size)
             .or(login)
             .or(register)
             .or(logout)
@@ -291,6 +298,16 @@ async fn take_seat(
     username: String,
 ) -> WarpResult<impl warp::Reply> {
     db.lock().await.take_seat(&lobby_code, seat_idx, &username);
+    Ok("OK")
+}
+
+async fn resize_lobby(
+    lobby_code: String,
+    size: usize,
+    db: Database,
+    username: String,
+) -> WarpResult<impl warp::Reply> {
+    db.lock().await.resize_lobby(&lobby_code, size, &username);
     Ok("OK")
 }
 

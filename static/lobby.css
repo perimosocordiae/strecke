@@ -1,11 +1,20 @@
 #lobby {
   display: flex;
-  flex-flow: column nowrap;
-  align-items: center;
+  flex-flow: row nowrap;
+  justify-content: center;
+}
+
+#lobby > table {
+  padding-right: 5em;
 }
 
 #lobby form {
   display: inline-block;
+}
+
+#lobby > div {
+  display: flex;
+  flex-flow: column nowrap;
 }
 
 #error {
