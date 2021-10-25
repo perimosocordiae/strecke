@@ -93,9 +93,12 @@ impl Board {
             let (row, col) = pos.next_tile_coords();
             self.grid[row as usize][col as usize] = Some((*tile, facing));
         }
-        // Move all players.
+        // Move all players, if still alive.
         for trail in self.players.iter_mut() {
             while let Some(pos) = trail.last() {
+                if !pos.alive {
+                    break;
+                }
                 let (d_row, d_col) = pos.port.facing_side().grid_offsets();
                 let row = pos.row + d_row;
                 let col = pos.col + d_col;
