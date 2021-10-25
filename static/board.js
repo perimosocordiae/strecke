@@ -11,7 +11,10 @@ const PORT_LEFT_TURNS = {
 const PORT_RIGHT_TURNS = {
   'A': 'C', 'B': 'D', 'C': 'E', 'D': 'F', 'E': 'G', 'F': 'H', 'G': 'A', 'H': 'B'
 };
-const PLAYER_COLORS = ['red', 'blue', 'green', 'purple', 'magenta'];
+const PLAYER_COLORS = [
+  'red', 'blue', 'green', 'purple', 'magenta', 'cyan', 'white', 'limegreen',
+  'black', 'brown', 'gray',
+];
 
 let playerPositions = [];
 let rotations = [];
@@ -194,9 +197,10 @@ function renderBoard(board) {
         let [gridTile, facing] = board.grid[pos.row][pos.col];
         let origPort = unnormalizePort(pos.port, facing);
         let [p0, p1] = gridTile.layout.find(p => p.includes(origPort));
-        let trailPath = makePath(pathCode(p0, p1));
+        let trailPath = makePath((p0 == origPort) ? pathCode(p0, p1) : pathCode(p1, p0));
         trailPath.setAttribute('stroke', color);
-        trailPath.setAttribute('stroke-width', 3);
+        trailPath.setAttribute('stroke-width', 5);
+        trailPath.setAttribute('stroke-dasharray', '15,5');
         tileDiv.firstChild.appendChild(trailPath);
       }
     }
