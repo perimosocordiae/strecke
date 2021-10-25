@@ -51,9 +51,10 @@ impl GameManager {
         let bidx = self.players[self.current_player_idx].board_index;
         {
             let p = &mut self.players[self.current_player_idx];
-            self.board
-                .play_tile(bidx, &p.tiles_in_hand[tile_index], facing);
-            p.tiles_in_hand.remove(tile_index);
+            if tile_index < p.tiles_in_hand.len() {
+                let tile = p.tiles_in_hand.remove(tile_index);
+                self.board.play_tile(bidx, &tile, facing);
+            }
         }
         // Check for any newly-dead players.
         let mut newly_dead = false;
