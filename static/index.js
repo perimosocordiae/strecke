@@ -1,38 +1,35 @@
 'use strict';
 
 function startLogin() {
-  let form = document.createElement('form');
-  form.appendChild(makeInput('text', 'username', true, 'Username'));
-  form.appendChild(makeInput('password', 'password', true, 'Password'));
-  form.appendChild(makeInput('submit'));
-  form.onsubmit = () => {
-    if (!form.checkValidity())
-      return false;
-    doLogin(new FormData(form));
-    return false;
-  };
-  let parent = document.getElementById('notAuth').lastElementChild;
-  parent.innerHTML = '';
-  parent.appendChild(form);
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('loginForm').style.display = 'inline-flex';
 }
 
 function startRegister() {
-  let form = document.createElement('form');
-  form.appendChild(makeInput('text', 'username', true, 'Choose a Username'));
-  form.appendChild(
-    makeInput('password', 'password', true, 'Choose a Password'));
-  form.appendChild(
-    makeInput('password', 'password2', true, 'Confirm Password'));
-  form.appendChild(makeInput('submit'));
-  form.onsubmit = () => {
-    if (!form.checkValidity())
-      return false;
-    doRegister(new FormData(form));
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('registerForm').style.display = 'inline-flex';
+}
+
+function submitLogin(form) {
+  if (!form.checkValidity())
     return false;
-  };
-  let parent = document.getElementById('notAuth').lastElementChild;
-  parent.innerHTML = '';
-  parent.appendChild(form);
+  fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(new FormData(form))),
+  }).then(handleLoginResponse);
+  return false;
+}
+
+function submitRegister(form) {
+  if (!form.checkValidity())
+    return false;
+  fetch('/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(new FormData(form))),
+  }).then(handleLoginResponse);
+  return false;
 }
 
 function makeInput(type, name, required, placeholder) {
@@ -68,22 +65,6 @@ function handleLoginResponse(response) {
   }
 }
 
-function doLogin(formData) {
-  fetch('/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(Object.fromEntries(formData)),
-  }).then(handleLoginResponse);
-}
-
-function doRegister(formData) {
-  fetch('/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(Object.fromEntries(formData)),
-  }).then(handleLoginResponse);
-}
-
 function checkLoginStatus() {
   fetch('/check_login').then(response => {
     if (response.ok) {
@@ -106,7 +87,13 @@ function renderLogo() {
   for (let letter of 'strecke') {
     let s = document.createElement('div');
     s.classList.add('tile');
-    s.appendChild(renderTile({ facing: 'North', layout: LETTERS[letter] }));
+    s.appendChild(renderTile({ layout: LETTERS[letter] }, 'North'));
     logo.appendChild(s);
   }
+  // Keep the tiles square.
+  const resizer = () => {
+    logo.style.height = logo.firstElementChild.offsetWidth + 'px';
+  };
+  window.addEventListener('resize', resizer);
+  resizer();
 }

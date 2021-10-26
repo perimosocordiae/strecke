@@ -1,20 +1,26 @@
 #lobby {
   display: flex;
   flex-flow: row nowrap;
-  justify-content: center;
+  justify-content: space-evenly;
+  padding-top: 1em;
 }
 
-#lobby > table {
-  padding-right: 5em;
+#lobby td {
+  padding: 0.5em 0;
 }
 
 #lobby form {
   display: inline-block;
 }
 
-#lobby > div {
+#lobby > .host {
   display: flex;
   flex-flow: column nowrap;
+  /* align-items: stretch; */
+}
+
+.host button {
+  padding: 1em;
 }
 
 #error {

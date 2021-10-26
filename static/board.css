@@ -1,10 +1,15 @@
+body {
+  margin: 0;
+}
+
 .board {
   display: grid;
+  /* grid-template-columns: 1em repeat(6, 1fr) 1em;
+  grid-template-rows: 1em repeat(6, 1fr) 1em; */
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  width: 90vw;
   max-width: 50em;
-  margin: -4vw auto 0;
+  margin: 0 auto;
   min-height: 6vw;
 }
 
@@ -47,6 +52,10 @@
  box-shadow: 0 0 5px;
 }
 
+.choice button {
+  padding: 0.5em 0;
+}
+
 .played {
   background-color: rgb(243, 178, 12);
 }
@@ -54,11 +63,7 @@
 .title {
   text-align: center;
   font-family: monospace;
-  z-index: 2;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  margin-bottom: -7vw;
 }
 .subtitle {
   text-align: center;
@@ -69,11 +74,11 @@
 
 .token {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 3vw;
+  height: 3vw;
   border-radius: 50%;
-  margin-top: -10px;
-  margin-left: -10px;
+  margin-top: -1.5vw;
+  margin-left: -1.5vw;
   z-index: 1;
 }
 

@@ -9,9 +9,21 @@
 <script src="/static/index.js"></script>
 <div id="logo"></div>
 <div id="notAuth" class="content">
-  <button onclick=startLogin()>Login</button> |
-  <button onclick=startRegister()>Register</button>
-  <div></div>
+  <div class="nav">
+    <button onclick=startLogin()>Login</button>
+    <button onclick=startRegister()>Register</button>
+  </div>
+  <form id="loginForm" method="POST" onsubmit="return submitLogin(this)">
+    <input type="text" name="username" required placeholder="Username">
+    <input type="password" name="password" required placeholder="Password">
+    <input type="submit">
+  </form>
+  <form id="registerForm" method="POST" onsubmit="return submitRegister(this)">
+    <input type="text" name="username" required placeholder="Choose a Username">
+    <input type="password" name="password" required placeholder="Choose a Password">
+    <input type="password" name="password2" required placeholder="Confirm Password">
+    <input type="submit">
+  </form>
 </div>
 <div id="hasAuth" class="content" style="display: none;">
   <form method="POST" action="/new_lobby">

@@ -10,24 +10,29 @@ function initLobby() {
     }
     response.text().then(text => { USERNAME = text; });
     const urlParams = new URLSearchParams(location.search);
-    LOBBY_CODE = urlParams.get('code');
-    const ws = new WebSocket(`ws://${location.host}/ws/${LOBBY_CODE}`);
-    ws.onopen = () => console.log('Opened WS connection.');
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      console.log('Got WS message:', msg);
-      if (msg.action === 'Update') {
-        renderLobby(msg.lobby);
-      } else if (msg.action === 'Start') {
-        window.location.href = msg.url;
-      } else if (msg.action === 'Error') {
-        renderError(msg.message);
-      }
-    }
-    ws.onclose = () => console.log('Closed WS connection.');
+    LOBBY_CODE = urlParams.get('code').toUpperCase();
     fetch(`/lobby_data/${LOBBY_CODE}`)
       .then((response) => response.json())
-      .then(renderLobby);
+      .then((data) => {
+        if (!data.names) {
+          return renderError(data);
+        }
+        const ws = new WebSocket(`ws://${location.host}/ws/${LOBBY_CODE}`);
+        ws.onopen = () => console.log('Opened WS connection.');
+        ws.onclose = () => console.log('Closed WS connection.');
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          console.log('Got WS message:', msg);
+          if (msg.action === 'Update') {
+            renderLobby(msg.lobby);
+          } else if (msg.action === 'Start') {
+            window.location.href = msg.url;
+          } else if (msg.action === 'Error') {
+            renderError(msg.message);
+          }
+        }
+        renderLobby(data);
+      });
   });
 }
 
@@ -73,15 +78,16 @@ function renderLobby(data) {
   if (!isHost) return;
   // Host-specific actions.
   const hostDiv = document.createElement('div');
+  hostDiv.classList.add('host');
   if (data.max_num_players < 11) {
     const addPlayerButton = document.createElement('button');
-    addPlayerButton.innerText = 'Add Player';
+    addPlayerButton.innerText = 'Add a Player';
     addPlayerButton.onclick = () => setNumPlayers(data.max_num_players + 1);
     hostDiv.appendChild(addPlayerButton);
   }
   if (data.max_num_players > 2) {
     const removePlayerButton = document.createElement('button');
-    removePlayerButton.innerText = 'Remove Player';
+    removePlayerButton.innerText = 'Drop Player';
     removePlayerButton.onclick = () => setNumPlayers(data.max_num_players - 1);
     hostDiv.appendChild(removePlayerButton);
   }

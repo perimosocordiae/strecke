@@ -7,8 +7,9 @@ body {
 #logo {
   display: grid;
   width: 45em;
+  max-width: 90vw;
   grid-template-columns: repeat(7, 1fr);
-  grid-gap: 0.5em;
+  grid-gap: 1vw;
   height: 6em;
   margin: 0 auto;
 }
@@ -19,7 +20,7 @@ body {
 
 form {
   display: inline-flex;
-  margin-bottom: 0.5em;
+  margin-bottom: 1em;
 }
 
 .error {
@@ -29,14 +30,41 @@ form {
 
 input {
   display: inline-block;
+  padding: 1em;
 }
 
-#hasAuth {
+#hasAuth, #notAuth {
   display: flex;
   flex-flow: column nowrap;
   align-items: stretch;
+  min-width: 50vw;
+}
+
+.nav {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-evenly;
+  margin-bottom: 1em;
+}
+
+.nav > button {
+  padding: 1em;
+}
+
+#loginForm, #registerForm {
+  display: none;
+}
+
+#notAuth form {
+  flex-flow: column nowrap;
 }
 
 #hasAuth input[type="submit"] {
   width: 100%;
+}
+
+#hasAuth input[type="text"] {
+  text-transform: uppercase;
+  text-align: center;
 }
