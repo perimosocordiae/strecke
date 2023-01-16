@@ -17,7 +17,6 @@ TODO list:
  - lobby page improvements
  - game over page
  - stats page
- - AI agents
  - drag/drop controls for playing tiles
  - tile preview on touch/drag
 
