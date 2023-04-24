@@ -2,10 +2,10 @@ use config::{Config, ConfigError, Environment, File};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use serde::Deserialize;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct KeyHolder {
     enc: EncodingKey,
-    dec: DecodingKey<'static>,
+    dec: DecodingKey,
 }
 
 impl Default for KeyHolder {
@@ -22,7 +22,7 @@ pub struct Server {
     pub port: u16,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Cookie {
     pub name: String,
     pub secret: String,
@@ -39,8 +39,7 @@ impl Cookie {
     }
     fn set_keys(&mut self) {
         self.key_holder.enc = EncodingKey::from_secret(self.secret.as_bytes());
-        self.key_holder.dec =
-            DecodingKey::from_secret(self.secret.as_bytes()).into_static();
+        self.key_holder.dec = DecodingKey::from_secret(self.secret.as_bytes());
     }
 }
 
@@ -49,7 +48,7 @@ pub struct Database {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Settings {
     pub server: Server,
     pub cookie: Cookie,
@@ -58,10 +57,11 @@ pub struct Settings {
 
 impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
-        let mut cfg = Config::new();
-        cfg.merge(File::with_name("./settings.toml"))?;
-        cfg.merge(Environment::with_prefix("strecke").separator("_"))?;
-        let mut s: Self = cfg.try_into()?;
+        let mut s: Self = Config::builder()
+            .add_source(File::with_name("./settings.toml"))
+            .add_source(Environment::with_prefix("strecke").separator("_"))
+            .build()?
+            .try_deserialize()?;
         s.cookie.set_keys();
         Ok(s)
     }
