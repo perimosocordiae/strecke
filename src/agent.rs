@@ -79,7 +79,7 @@ mod test {
         let played_tile = all_tiles()[27];
         let dir = Direction::North;
         let end_pos = follow_path(&board, &start_pos, &played_tile, dir);
-        assert_eq!(end_pos.alive, false);
+        assert!(!end_pos.alive);
         assert_eq!(end_pos.row, 5);
         assert_eq!(end_pos.col, -1);
         assert_eq!(end_pos.port, Port::C);
