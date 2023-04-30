@@ -69,7 +69,7 @@ mod test {
 
     #[test]
     fn test_follow_path_basic() {
-        let board = Board::new();
+        let board = Board::default();
         let start_pos = Position {
             row: 6,
             col: 0,

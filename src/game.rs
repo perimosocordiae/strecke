@@ -27,7 +27,7 @@ impl GameManager {
         let mut tile_stack = all_tiles();
         tile_stack.shuffle(rng);
         GameManager {
-            board: Board::new(),
+            board: Board::default(),
             tile_stack,
             players: Vec::new(),
             current_player_idx: 0,

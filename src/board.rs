@@ -51,7 +51,7 @@ fn test_is_valid_start() {
     .is_valid_start());
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 pub struct Board {
     // 2d array of tiles and their orientations
     grid: [[Option<(Tile, Direction)>; 6]; 6],
@@ -60,12 +60,6 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new() -> Self {
-        Board {
-            grid: [[None; 6]; 6],
-            players: vec![],
-        }
-    }
     pub fn get_tile(
         &self,
         pos: &Position,
@@ -132,14 +126,14 @@ impl Board {
 }
 
 #[test]
-fn test_new_board() {
-    let b = Board::new();
+fn test_default_board() {
+    let b = Board::default();
     assert!(b.grid[0][0].is_none());
 }
 
 #[test]
 fn test_add_players() {
-    let mut b = Board::new();
+    let mut b = Board::default();
     assert_eq!(b.players.len(), 0);
     assert_eq!(
         b.add_player(Position {

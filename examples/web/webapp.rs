@@ -1,14 +1,15 @@
-use crate::board;
-use crate::game::GameManager;
-use crate::lobby;
-use crate::tiles::Direction;
 use argon2::{self, Config};
 use chrono::Utc;
+use log::{error, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use std::error;
 use std::fmt;
+use strecke::board;
+use strecke::game::GameManager;
+use strecke::lobby;
+use strecke::tiles::Direction;
 
 #[derive(Deserialize)]
 pub struct UserCredentials {
