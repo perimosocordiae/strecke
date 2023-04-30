@@ -1,7 +1,6 @@
 use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use strecke::board;
-use strecke::tiles::Port;
 
 const MAX_PLAYERS: usize = 11;
 // No I,O
@@ -17,46 +16,12 @@ pub fn generate_lobby_code() -> String {
         .collect()
 }
 
-// Edge positions are ndexed in CW order starting from the top left (0,0,A).
-// Valid range: [0, 48] (with 48=not ready).
-type EdgePos = i8;
-const NOT_READY: EdgePos = 48;
-
-fn is_valid_edge_position(pos: EdgePos) -> bool {
-    (0..=NOT_READY).contains(&pos)
-}
-
-fn edge_position(pos: EdgePos) -> board::Position {
-    let port: Port;
-    let (row, col) = if pos < 12 {
-        port = if pos % 2 == 0 { Port::F } else { Port::E };
-        (-1, pos / 2)
-    } else if pos < 24 {
-        port = if pos % 2 == 0 { Port::H } else { Port::G };
-        ((pos - 12) / 2, 6)
-    } else if pos < 36 {
-        port = if pos % 2 == 0 { Port::B } else { Port::A };
-        (6, (35 - pos) / 2)
-    } else if pos < 48 {
-        port = if pos % 2 == 0 { Port::D } else { Port::C };
-        ((47 - pos) / 2, -1)
-    } else {
-        panic!("Invalid EdgePos: {}", pos);
-    };
-    board::Position {
-        row,
-        col,
-        port,
-        alive: true,
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Lobby {
     // Usernames of the present players
     names: Vec<String>,
     // Parallel vector of starting positions
-    start_positions: Vec<EdgePos>,
+    start_positions: Vec<board::EdgePos>,
     // Total number of players to allow
     max_num_players: usize,
 }
@@ -67,7 +32,7 @@ impl Lobby {
         let mut names = Vec::with_capacity(max_num_players);
         names.push(username);
         let mut start_positions = Vec::with_capacity(max_num_players);
-        start_positions.push(NOT_READY);
+        start_positions.push(board::NOT_READY);
         Lobby {
             names,
             start_positions,
@@ -93,10 +58,10 @@ impl Lobby {
 
     pub fn take_seat(
         &mut self,
-        seat_idx: EdgePos,
+        seat_idx: board::EdgePos,
         username: String,
     ) -> Result<(), &str> {
-        if !is_valid_edge_position(seat_idx) {
+        if !board::is_valid_edge_position(seat_idx) {
             return Err("Invalid seat_idx");
         }
         if let Some(i) = self.names.iter().position(|name| name == &username) {
@@ -112,7 +77,7 @@ impl Lobby {
         self.names
             .iter()
             .zip(self.start_positions.iter())
-            .filter(|(_, pos)| *pos < &NOT_READY)
+            .filter(|(_, pos)| *pos < &board::NOT_READY)
             .map(|(name, _)| name)
             .collect()
     }
@@ -123,8 +88,8 @@ impl Lobby {
         self.names
             .into_iter()
             .zip(self.start_positions.into_iter())
-            .filter(|(_, pos)| *pos < NOT_READY)
-            .map(|(name, pos)| (name, edge_position(pos)))
+            .filter(|(_, pos)| *pos < board::NOT_READY)
+            .map(|(name, pos)| (name, board::edge_position(pos)))
     }
 
     pub fn run_pregame_checks(&self, username: &str) -> Result<(), &str> {
@@ -134,7 +99,7 @@ impl Lobby {
         if username != self.host() {
             return Err("Only the host can start the game");
         }
-        if !self.start_positions.iter().any(|&x| x < NOT_READY) {
+        if !self.start_positions.iter().any(|&x| x < board::NOT_READY) {
             return Err("No human players are ready to play");
         }
         Ok(())
@@ -151,7 +116,7 @@ impl Lobby {
         let num_humans = 1 + self
             .start_positions
             .iter()
-            .rposition(|&x| x < NOT_READY)
+            .rposition(|&x| x < board::NOT_READY)
             .unwrap();
         assert!(num_humans <= self.max_num_players);
         if num_humans < self.max_num_players {

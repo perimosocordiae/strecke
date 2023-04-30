@@ -40,6 +40,40 @@ impl Position {
     }
 }
 
+// Edge positions are ndexed in CW order starting from the top left (0,0,A).
+// Valid range: [0, 48] (with 48=not ready).
+pub type EdgePos = i8;
+pub const NOT_READY: EdgePos = 48;
+
+pub fn is_valid_edge_position(pos: EdgePos) -> bool {
+    (0..=NOT_READY).contains(&pos)
+}
+
+pub fn edge_position(pos: EdgePos) -> Position {
+    let port: Port;
+    let (row, col) = if pos < 12 {
+        port = if pos % 2 == 0 { Port::F } else { Port::E };
+        (-1, pos / 2)
+    } else if pos < 24 {
+        port = if pos % 2 == 0 { Port::H } else { Port::G };
+        ((pos - 12) / 2, 6)
+    } else if pos < 36 {
+        port = if pos % 2 == 0 { Port::B } else { Port::A };
+        (6, (35 - pos) / 2)
+    } else if pos < 48 {
+        port = if pos % 2 == 0 { Port::D } else { Port::C };
+        ((47 - pos) / 2, -1)
+    } else {
+        panic!("Invalid EdgePos: {}", pos);
+    };
+    Position {
+        row,
+        col,
+        port,
+        alive: true,
+    }
+}
+
 #[test]
 fn test_is_valid_start() {
     assert!(Position {
