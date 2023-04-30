@@ -1,3 +1,4 @@
+use crate::lobby;
 use argon2::{self, Config};
 use chrono::Utc;
 use log::{error, info};
@@ -8,7 +9,6 @@ use std::error;
 use std::fmt;
 use strecke::board;
 use strecke::game::GameManager;
-use strecke::lobby;
 use strecke::tiles::Direction;
 
 #[derive(Deserialize)]

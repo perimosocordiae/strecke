@@ -1,3 +1,4 @@
+mod lobby;
 mod settings;
 mod webapp;
 use futures::{SinkExt, StreamExt, TryFutureExt};

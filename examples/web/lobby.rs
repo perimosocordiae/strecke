@@ -1,7 +1,7 @@
-use crate::board;
-use crate::tiles::Port;
 use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
+use strecke::board;
+use strecke::tiles::Port;
 
 const MAX_PLAYERS: usize = 11;
 // No I,O
