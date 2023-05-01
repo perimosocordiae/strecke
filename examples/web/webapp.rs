@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use std::error;
 use std::fmt;
+use strecke::agent::{Agent, AvoidSuddenDeathAgent};
 use strecke::board;
 use strecke::game::GameManager;
 use strecke::tiles::Direction;
@@ -291,7 +292,14 @@ impl AppState {
         if game.current_player().username != username {
             return Err(NotYourTurnError.into());
         }
-        let num_alive = game.take_turn(params.idx, params.facing);
+        let mut num_alive = game.take_turn(params.idx, params.facing);
+        // HACK: Handle AI player moves.
+        while num_alive > 1
+            && game.current_player().username.starts_with("AI player #")
+        {
+            let ai_move = AvoidSuddenDeathAgent::default().choose_action(game);
+            num_alive = game.take_turn(ai_move.0, ai_move.1);
+        }
         if num_alive >= 2 {
             return Ok((&game.board, GameStatus::Ongoing));
         }

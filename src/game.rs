@@ -1,4 +1,3 @@
-use crate::agent;
 use crate::board::{Board, Position};
 use crate::tiles::{all_tiles, Direction, Tile};
 use rand::seq::SliceRandom;
@@ -12,7 +11,7 @@ const TILES_PER_PLAYER: i32 = 3;
 pub struct Player {
     pub username: String,
     board_index: usize,
-    tiles_in_hand: Vec<Tile>,
+    pub tiles_in_hand: Vec<Tile>,
 }
 
 pub struct GameManager {
@@ -95,24 +94,15 @@ impl GameManager {
             self.current_player_idx += 1;
             self.current_player_idx %= self.players.len();
         }
-        // HACK: Handle AI player moves.
-        if self.players.len() > 1
-            && self.current_player().username.starts_with("AI player #")
-        {
-            let mut bidxs: Vec<usize> =
-                self.players.iter().map(|p| p.board_index).collect();
-            bidxs.swap(self.current_player_idx, 0);
-            let ai_move = agent::select_tile(
-                &self.board,
-                &bidxs,
-                &self.current_player().tiles_in_hand,
-            );
-            return self.take_turn(ai_move.0, ai_move.1);
-        }
         self.players.len()
     }
     pub fn current_player(&self) -> &Player {
         &self.players[self.current_player_idx]
+    }
+    pub fn current_player_pos(&self) -> &Position {
+        self.board.players[self.current_player().board_index]
+            .last()
+            .unwrap()
     }
     pub fn get_player(&self, player_name: &str) -> Option<&Player> {
         self.players.iter().find(|&p| p.username == player_name)

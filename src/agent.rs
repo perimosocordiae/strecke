@@ -1,26 +1,35 @@
 use crate::board::{Board, Position};
+use crate::game::GameManager;
 use crate::tiles::{Direction, Tile};
 use log::info;
 
+pub trait Agent {
+    fn choose_action(&self, game: &GameManager) -> (usize, Direction);
+}
+
+pub fn create_agent(_difficulty: usize) -> Box<dyn Agent + Send> {
+    Box::<AvoidSuddenDeathAgent>::default()
+}
+
 // Simple tile selection function that only tries to avoid immediate death.
-pub fn select_tile(
-    board: &Board,
-    board_indices: &[usize],
-    hand: &[Tile],
-) -> (usize, Direction) {
-    let my_idx = board_indices[0];
-    let my_pos = board.players[my_idx].last().unwrap();
-    for (i, tile) in hand.iter().enumerate() {
-        for dir in Direction::all() {
-            let end_pos = follow_path(board, my_pos, tile, dir);
-            if end_pos.alive {
-                return (i, dir);
+#[derive(Default)]
+pub struct AvoidSuddenDeathAgent;
+impl Agent for AvoidSuddenDeathAgent {
+    fn choose_action(&self, game: &GameManager) -> (usize, Direction) {
+        let my_pos = game.current_player_pos();
+        for (i, tile) in game.current_player().tiles_in_hand.iter().enumerate()
+        {
+            for dir in Direction::all() {
+                let end_pos = follow_path(&game.board, my_pos, tile, dir);
+                if end_pos.alive {
+                    return (i, dir);
+                }
             }
         }
+        // Fallback: no safe tile to play.
+        info!("No safe tile to play, playing arbitrary tile!");
+        (0, Direction::North)
     }
-    // Fallback: no safe tile to play.
-    info!("No safe tile to play, playing arbitrary tile!");
-    (0, Direction::North)
 }
 
 // TODO: refactor this w/ Board::play_tile
