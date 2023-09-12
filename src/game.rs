@@ -109,15 +109,19 @@ impl GameManager {
             .iter()
             .find(|&p| p.username == player_name)
     }
-    pub fn player_trail_lengths(&self) -> Vec<i32> {
-        self.board.players.iter().map(|p| p.len() as i32).collect()
-    }
-    pub fn is_alive(&self, player: &Player) -> bool {
+    pub fn player_scores(&self) -> Vec<i32> {
         self.board
             .players
-            .get(player.board_index)
-            .map(|p| p.last().unwrap().alive)
-            .unwrap_or(false)
+            .iter()
+            .map(|trail| {
+                let n = trail.len() as i32 - 1;
+                if trail.last().unwrap().alive {
+                    n + 1000
+                } else {
+                    n - 1
+                }
+            })
+            .collect()
     }
     pub fn is_over(&self) -> bool {
         self.alive_players.len() <= 1
