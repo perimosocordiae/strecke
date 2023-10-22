@@ -18,7 +18,7 @@ pub struct GameManager {
     pub board: Board,
     tile_stack: Vec<Tile>,
     pub alive_players: Vec<Player>,
-    current_player_idx: usize,
+    pub current_player_idx: usize,
 }
 
 impl GameManager {

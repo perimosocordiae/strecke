@@ -17,17 +17,25 @@ pub struct AvoidSuddenDeathAgent;
 impl Agent for AvoidSuddenDeathAgent {
     fn choose_action(&self, game: &GameManager) -> (usize, Direction) {
         let my_pos = game.current_player_pos();
-        for (i, tile) in game.current_player().tiles_in_hand.iter().enumerate()
-        {
+        let me = game.current_player();
+        assert!(!me.tiles_in_hand.is_empty());
+        for (i, tile) in me.tiles_in_hand.iter().enumerate() {
             for dir in Direction::all() {
                 let end_pos = follow_path(&game.board, my_pos, tile, dir);
                 if end_pos.alive {
+                    info!(
+                        "{}: Playing tile {} facing {:?}",
+                        me.username, i, dir
+                    );
                     return (i, dir);
                 }
             }
         }
         // Fallback: no safe tile to play.
-        info!("No safe tile to play, playing arbitrary tile!");
+        info!(
+            "{}: No safe tile to play, playing arbitrary tile!",
+            me.username
+        );
         (0, Direction::North)
     }
 }
