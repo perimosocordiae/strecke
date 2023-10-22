@@ -39,7 +39,7 @@ fn main() {
         loop {
             let ai = &agents[game.current_player_idx];
             let (tile_idx, facing) = ai.choose_action(&game);
-            if game.take_turn(tile_idx, facing) < 2 {
+            if game.take_turn(tile_idx, facing).is_some() {
                 break;
             }
         }

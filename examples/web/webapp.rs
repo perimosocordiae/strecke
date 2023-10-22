@@ -292,51 +292,52 @@ impl AppState {
         if game.current_player().username != username {
             return Err(NotYourTurnError.into());
         }
-        let mut num_alive = game.take_turn(params.idx, params.facing);
+        let mut winners = game.take_turn(params.idx, params.facing);
         // HACK: Handle AI player moves.
-        while num_alive > 1
+        while winners.is_none()
             && game.current_player().username.starts_with("AI player #")
         {
             let ai_move = AvoidSuddenDeathAgent::default().choose_action(game);
-            num_alive = game.take_turn(ai_move.0, ai_move.1);
+            winners = game.take_turn(ai_move.0, ai_move.1);
         }
-        if num_alive >= 2 {
-            return Ok((&game.board, GameStatus::Ongoing));
-        }
-        // Game is over, record the result in the DB.
-        let now = Utc::now();
-        self.conn.execute(
-            "UPDATE games
+        let status = if let Some(winner_names) = winners {
+            // Game is over, record the result in the DB.
+            let now = Utc::now();
+            self.conn.execute(
+                "UPDATE games
             SET board_state = ?1, end_time = ?2
             WHERE id = ?3 LIMIT 1",
-            [
-                serde_json::to_string(&game.board)?,
-                now.to_rfc3339(),
-                params.game_id.to_string(),
-            ],
-        )?;
-        let players_json = self.conn.query_row(
-            "SELECT player_ids FROM games WHERE id = ?1 LIMIT 1",
-            [params.game_id.to_string()],
-            |row| row.get::<usize, String>(0),
-        )?;
-        let player_names: Vec<String> = serde_json::from_str(&players_json)?;
-        for name in player_names.into_iter() {
-            self.conn.execute(
-                "UPDATE players
+                [
+                    serde_json::to_string(&game.board)?,
+                    now.to_rfc3339(),
+                    params.game_id.to_string(),
+                ],
+            )?;
+            let players_json = self.conn.query_row(
+                "SELECT player_ids FROM games WHERE id = ?1 LIMIT 1",
+                [params.game_id.to_string()],
+                |row| row.get::<usize, String>(0),
+            )?;
+            let player_names: Vec<String> =
+                serde_json::from_str(&players_json)?;
+            for name in player_names.into_iter() {
+                self.conn.execute(
+                    "UPDATE players
                 SET num_games = num_games + 1, last_game = ?1
                 WHERE username = ?2 LIMIT 1",
-                [now.to_rfc3339(), name],
-            )?;
-        }
-        Ok((
-            &game.board,
-            if num_alive == 1 {
-                GameStatus::Winner(game.current_player().username.clone())
-            } else {
-                GameStatus::EveryoneLoses
-            },
-        ))
+                    [now.to_rfc3339(), name],
+                )?;
+            }
+            match winner_names.len() {
+                0 => GameStatus::EveryoneLoses,
+                1 => GameStatus::Winner(winner_names[0].clone()),
+                // TODO: Allow having multiple winners.
+                _ => GameStatus::Winner(winner_names[0].clone()),
+            }
+        } else {
+            GameStatus::Ongoing
+        };
+        Ok((&game.board, status))
     }
 
     pub fn take_turn(&mut self, params: TurnParams, username: &str) {
