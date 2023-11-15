@@ -126,10 +126,9 @@ impl GameManager {
                     self.dragon_player_bidx = self
                         .alive_players
                         .iter()
-                        .filter(|p| {
+                        .find(|p| {
                             p.tiles_in_hand.len() < TILES_PER_PLAYER as usize
                         })
-                        .next()
                         .map(|p| p.board_index);
                 }
                 info!("Player died: {}", dead.username);
