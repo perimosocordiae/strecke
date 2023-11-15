@@ -94,9 +94,7 @@ impl GameManager {
             self.current_player_idx += 1;
             self.current_player_idx %= self.alive_players.len();
         }
-        if self.tile_stack.is_empty()
-            && self.current_player().tiles_in_hand.is_empty()
-        {
+        if self.is_over() {
             // All remaining players win!
             Some(
                 self.alive_players
@@ -210,5 +208,7 @@ impl GameManager {
     }
     pub fn is_over(&self) -> bool {
         self.alive_players.len() <= 1
+            || (self.tile_stack.is_empty()
+                && self.current_player().tiles_in_hand.is_empty())
     }
 }
