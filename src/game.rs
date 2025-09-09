@@ -1,5 +1,5 @@
 use crate::board::{Board, Position};
-use crate::tiles::{all_tiles, Direction, Tile};
+use crate::tiles::{Direction, Tile, all_tiles};
 use log::info;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};

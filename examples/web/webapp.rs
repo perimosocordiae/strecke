@@ -4,7 +4,7 @@ use chrono::Utc;
 use log::{error, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 use std::error;
 use std::fmt;
 use strecke::agent::{Agent, AvoidSuddenDeathAgent};
@@ -173,7 +173,7 @@ impl AppState {
             ],
         )?;
         let game_id = self.conn.last_insert_rowid();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut gm = GameManager::new(&mut rng);
         for (user, position) in lobby.into_seated_players() {
             gm.register_player(user, position)?;
@@ -372,7 +372,7 @@ impl AppState {
         creds: UserCredentials,
         secret: &jsonwebtoken::EncodingKey,
     ) -> Result<String> {
-        let salt = rand::thread_rng().gen::<[u8; 32]>();
+        let salt = rand::rng().random::<[u8; 32]>();
         let config = Config::default();
         let hash = argon2::hash_encoded(&creds.password, &salt, &config)?;
         match self.conn.execute(

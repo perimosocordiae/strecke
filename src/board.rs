@@ -76,13 +76,15 @@ pub fn edge_position(pos: EdgePos) -> Position {
 
 #[test]
 fn test_is_valid_start() {
-    assert!(Position {
-        row: -1,
-        col: 2,
-        port: Port::E,
-        alive: true
-    }
-    .is_valid_start());
+    assert!(
+        Position {
+            row: -1,
+            col: 2,
+            port: Port::E,
+            alive: true
+        }
+        .is_valid_start()
+    );
 }
 
 #[derive(Default, Debug, Deserialize, Serialize)]

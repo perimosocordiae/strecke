@@ -1,4 +1,4 @@
-use rand::distributions::{Distribution, Uniform};
+use rand::distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use strecke::board;
 
@@ -7,8 +7,8 @@ const MAX_PLAYERS: usize = 11;
 static CODE_CHARS: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 pub fn generate_lobby_code() -> String {
-    let range = Uniform::from(0..CODE_CHARS.len());
-    let mut rng = rand::thread_rng();
+    let range = Uniform::try_from(0..CODE_CHARS.len()).unwrap();
+    let mut rng = rand::rng();
     range
         .sample_iter(&mut rng)
         .take(4)
@@ -122,8 +122,8 @@ impl Lobby {
         if num_humans < self.max_num_players {
             self.names.truncate(num_humans);
             self.start_positions.truncate(num_humans);
-            let range = Uniform::from(0..48);
-            let mut rng = rand::thread_rng();
+            let range = Uniform::try_from(0..48).unwrap();
+            let mut rng = rand::rng();
             for i in 0..(self.max_num_players - num_humans) {
                 self.names.push(format!("AI player #{}", i + 1));
                 // Assign a random starting location that isn't in use.

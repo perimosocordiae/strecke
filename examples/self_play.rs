@@ -1,5 +1,5 @@
 use clap::Parser;
-use rand::seq::SliceRandom;
+use rand::prelude::SliceRandom;
 use strecke::agent;
 use strecke::board;
 use strecke::game::GameManager;
@@ -17,7 +17,7 @@ fn main() {
     pretty_env_logger::init();
 
     let args = Args::parse();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let num_players = args.agents.len();
     let mut positions: Vec<i8> = (0i8..48i8).collect();

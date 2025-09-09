@@ -82,7 +82,7 @@ fn follow_path(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tiles::{all_tiles, Port};
+    use crate::tiles::{Port, all_tiles};
 
     #[test]
     fn test_follow_path_basic() {

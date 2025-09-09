@@ -3,11 +3,11 @@ mod settings;
 mod webapp;
 use futures::{SinkExt, StreamExt, TryFutureExt};
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use warp::http::{header, Response, StatusCode, Uri};
-use warp::ws::WebSocket;
 use warp::Filter;
+use warp::http::{Response, StatusCode, Uri, header};
+use warp::ws::WebSocket;
 
 #[macro_use]
 extern crate lazy_static;
