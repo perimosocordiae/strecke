@@ -68,16 +68,16 @@ impl StreckeAPI {
         action: &Action,
         mut notice_cb: F,
     ) -> Result<()> {
-        self.game_over = self
-            .state
-            .take_turn(action.tile_idx, action.facing)
-            .is_some();
-        // Notify all human players of the action.
         let turn_info = TurnInfo {
             tile: self.state.current_player().tiles_in_hand[action.tile_idx],
             pos: self.state.current_player_pos().next_tile_position(),
             facing: action.facing,
         };
+        self.game_over = self
+            .state
+            .take_turn(action.tile_idx, action.facing)
+            .is_some();
+        // Notify all human players of the action.
         for idx in self.human_player_idxs() {
             let player_id = self.player_ids[idx].as_str();
             let is_winner =

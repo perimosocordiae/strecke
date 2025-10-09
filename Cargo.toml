@@ -1,6 +1,6 @@
 [package]
 name = "strecke"
-version = "0.2.10"
+version = "0.2.11"
 authors = ["CJ Carey <perimosocordiae@gmail.com>"]
 edition = "2024"
 
