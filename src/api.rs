@@ -1,4 +1,4 @@
-use blau_api::{GameAPI, PlayerInfo, Result};
+use blau_api::{DynSafeGameAPI, GameAPI, PlayerInfo, Result};
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 
@@ -147,26 +147,6 @@ impl GameAPI for StreckeAPI {
         Ok(res)
     }
 
-    fn is_game_over(&self) -> bool {
-        self.game_over
-    }
-
-    fn final_state(&self) -> Result<String> {
-        if !self.game_over {
-            return Err("Game is not finished".into());
-        }
-        Ok(serde_json::to_string(&self.state.board)?)
-    }
-
-    fn player_view(&self, player_id: &str) -> Result<String> {
-        let view = PlayerView {
-            board: &self.state.board,
-            players: self.player_ids.as_slice(),
-            hand: self.player_hand(player_id),
-        };
-        Ok(serde_json::to_string(&view)?)
-    }
-
     fn start<F: FnMut(&str, &str)>(
         &mut self,
         game_id: i64,
@@ -194,6 +174,28 @@ impl GameAPI for StreckeAPI {
         // Advance to wait for the next player action.
         self.process_agents(&mut notice_cb)?;
         Ok(())
+    }
+}
+
+impl DynSafeGameAPI for StreckeAPI {
+    fn is_game_over(&self) -> bool {
+        self.game_over
+    }
+
+    fn final_state(&self) -> Result<String> {
+        if !self.game_over {
+            return Err("Game is not finished".into());
+        }
+        Ok(serde_json::to_string(&self.state.board)?)
+    }
+
+    fn player_view(&self, player_id: &str) -> Result<String> {
+        let view = PlayerView {
+            board: &self.state.board,
+            players: self.player_ids.as_slice(),
+            hand: self.player_hand(player_id),
+        };
+        Ok(serde_json::to_string(&view)?)
     }
 
     fn current_player_id(&self) -> &str {
