@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blau_api::{DynSafeGameAPI, GameAPI, PlayerInfo, Result};
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
@@ -38,17 +40,16 @@ struct TakeTurnMessage<'a> {
 #[derive(Serialize)]
 struct PlayerView<'a> {
     board: &'a board::Board,
-    players: &'a [String],
     hand: Option<&'a [Tile]>,
 }
 
 pub struct StreckeAPI {
     // Current game state
     state: GameManager,
-    // Player IDs in the same order as agents
-    player_ids: Vec<String>,
-    // None if human player
-    agents: Vec<Option<Box<dyn Agent + Send>>>,
+    // List of all players in the game
+    player_info: Vec<PlayerInfo>,
+    // Player ID -> Agent mapping
+    agents: HashMap<String, Box<dyn Agent + Send>>,
     // Indicates if the game is over
     game_over: bool,
 }
@@ -78,33 +79,32 @@ impl StreckeAPI {
             .take_turn(action.tile_idx, action.facing)
             .is_some();
         // Notify all human players of the action.
-        for idx in self.human_player_idxs() {
-            let player_id = self.player_ids[idx].as_str();
-            let is_winner =
-                self.game_over && self.state.get_player(player_id).is_some();
+        for player_id in self.human_player_ids() {
+            let hand = self.player_hand(player_id);
             let msg = TakeTurnMessage {
                 board: &self.state.board,
-                hand: self.player_hand(player_id),
+                hand,
                 turn: &turn_info,
                 is_over: self.game_over,
-                is_winner,
+                is_winner: self.game_over && hand.is_some(),
             };
             let msg = serde_json::to_string(&msg)?;
             notice_cb(player_id, &msg);
         }
         Ok(())
     }
-    fn human_player_idxs(&self) -> impl Iterator<Item = usize> + '_ {
-        self.agents.iter().enumerate().filter_map(|(idx, agent)| {
-            if agent.is_none() { Some(idx) } else { None }
-        })
+    fn human_player_ids(&self) -> impl Iterator<Item = &String> {
+        self.player_info
+            .iter()
+            .filter(|p| p.level.is_none())
+            .map(|p| &p.id)
     }
     fn process_agents<F: FnMut(&str, &str)>(
         &mut self,
         mut notice_cb: F,
     ) -> Result<()> {
         while !self.game_over
-            && let Some(ai) = &self.agents[self.state.current_player_idx]
+            && let Some(ai) = self.agents.get(self.current_player_id())
         {
             let (tile_idx, facing) = ai.choose_action(&self.state);
             self.do_action(&Action { tile_idx, facing }, &mut notice_cb)?;
@@ -116,24 +116,21 @@ impl GameAPI for StreckeAPI {
     fn init(players: &[PlayerInfo], _params: Option<&str>) -> Result<Self> {
         let mut rng = rand::rng();
         let mut state = GameManager::new(&mut rng);
-        let player_ids =
-            players.iter().map(|p| p.id.clone()).collect::<Vec<_>>();
         let positions =
-            (0..board::NOT_READY).choose_multiple(&mut rng, player_ids.len());
-        for (player_id, edge_pos) in player_ids.iter().zip(positions) {
+            (0..board::NOT_READY).choose_multiple(&mut rng, players.len());
+        let mut agents = HashMap::new();
+        for (player, edge_pos) in players.iter().zip(positions) {
             state.register_player(
-                player_id.to_owned(),
+                player.id.clone(),
                 board::edge_position(edge_pos),
             )?;
+            if player.level.is_some() {
+                agents.insert(player.id.clone(), create_agent(0));
+            }
         }
-
-        let agents = players
-            .iter()
-            .map(|p| p.level.map(|lvl| create_agent(1 + lvl as usize)))
-            .collect();
         Ok(Self {
             state,
-            player_ids,
+            player_info: players.to_vec(),
             agents,
             game_over: false,
         })
@@ -153,8 +150,8 @@ impl GameAPI for StreckeAPI {
         mut notice_cb: F,
     ) -> Result<()> {
         let msg = format!(r#"{{"action": "start", "game_id": {game_id}}}"#);
-        for idx in self.human_player_idxs() {
-            notice_cb(self.player_ids[idx].as_str(), &msg);
+        for player_id in self.human_player_ids() {
+            notice_cb(player_id, &msg);
         }
         // Advance to wait for the next player action.
         self.process_agents(notice_cb)?;
@@ -192,7 +189,6 @@ impl DynSafeGameAPI for StreckeAPI {
     fn player_view(&self, player_id: &str) -> Result<String> {
         let view = PlayerView {
             board: &self.state.board,
-            players: self.player_ids.as_slice(),
             hand: self.player_hand(player_id),
         };
         Ok(serde_json::to_string(&view)?)
