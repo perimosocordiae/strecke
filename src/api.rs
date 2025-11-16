@@ -29,18 +29,19 @@ struct TurnInfo {
 /// Message sent to players after a turn is taken.
 #[derive(Debug, Serialize)]
 struct TakeTurnMessage<'a> {
-    board: &'a board::Board,
-    hand: Option<&'a [Tile]>,
+    #[serde(flatten)]
+    view: PlayerView<'a>,
     turn: &'a TurnInfo,
     is_over: bool,
     is_winner: bool,
 }
 
 /// View of the game state for a specific player.
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct PlayerView<'a> {
     board: &'a board::Board,
     hand: Option<&'a [Tile]>,
+    curr_player_idx: usize,
 }
 
 pub struct StreckeAPI {
@@ -64,6 +65,26 @@ impl StreckeAPI {
             }
         })
     }
+    fn view(&'_ self, player_id: &str) -> Result<PlayerView<'_>> {
+        if self.game_over {
+            return Ok(PlayerView {
+                board: &self.state.board,
+                hand: None,
+                curr_player_idx: 0,
+            });
+        }
+        let curr_player_id = &self.state.current_player().username;
+        let curr_player_idx = self
+            .player_info
+            .iter()
+            .position(|p| p.id == *curr_player_id)
+            .ok_or("Invalid player ID")?;
+        Ok(PlayerView {
+            board: &self.state.board,
+            hand: self.player_hand(player_id),
+            curr_player_idx,
+        })
+    }
     fn do_action<F: FnMut(&str, &str)>(
         &mut self,
         action: &Action,
@@ -80,13 +101,13 @@ impl StreckeAPI {
             .is_some();
         // Notify all human players of the action.
         for player_id in self.human_player_ids() {
-            let hand = self.player_hand(player_id);
+            let view = self.view(player_id)?;
+            let is_winner = self.game_over && view.hand.is_some();
             let msg = TakeTurnMessage {
-                board: &self.state.board,
-                hand,
+                view,
                 turn: &turn_info,
                 is_over: self.game_over,
-                is_winner: self.game_over && hand.is_some(),
+                is_winner,
             };
             let msg = serde_json::to_string(&msg)?;
             notice_cb(player_id, &msg);
@@ -187,10 +208,7 @@ impl DynSafeGameAPI for StreckeAPI {
     }
 
     fn player_view(&self, player_id: &str) -> Result<String> {
-        let view = PlayerView {
-            board: &self.state.board,
-            hand: self.player_hand(player_id),
-        };
+        let view = self.view(player_id)?;
         Ok(serde_json::to_string(&view)?)
     }
 
