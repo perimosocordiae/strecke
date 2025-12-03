@@ -38,6 +38,10 @@ impl Position {
             alive: self.alive,
         }
     }
+    pub fn l1_distance(&self, other: &Position) -> i32 {
+        (self.row - other.row).abs() as i32
+            + (self.col - other.col).abs() as i32
+    }
 }
 
 // Edge positions are ndexed in CW order starting from the top left (0,0,A).

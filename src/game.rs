@@ -11,7 +11,7 @@ const TILES_PER_PLAYER: i32 = 3;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Player {
     pub username: String,
-    board_index: usize,
+    pub board_index: usize,
     pub tiles_in_hand: Vec<Tile>,
 }
 
