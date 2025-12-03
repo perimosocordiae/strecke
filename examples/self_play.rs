@@ -29,12 +29,16 @@ fn main() {
             .collect::<Vec<_>>();
         let mut game = GameManager::new(&mut rng);
         positions.shuffle(&mut rng);
-        for pos in positions.iter().take(num_players) {
-            game.register_player(
-                format!("p{}", pos),
-                board::edge_position(*pos),
-            )
-            .unwrap();
+        {
+            let mut player_idx = 0;
+            for pos in positions.iter().take(num_players) {
+                game.register_player(
+                    format!("p{player_idx}({})", args.agents[player_idx]),
+                    board::edge_position(*pos),
+                )
+                .unwrap();
+                player_idx += 1;
+            }
         }
         loop {
             let ai = &agents[game.current_player_idx];
