@@ -145,8 +145,8 @@ impl GameAPI for StreckeAPI {
                 player.id.clone(),
                 board::edge_position(edge_pos),
             )?;
-            if player.level.is_some() {
-                agents.insert(player.id.clone(), create_agent(0));
+            if let Some(level) = player.level {
+                agents.insert(player.id.clone(), create_agent(level as usize));
             }
         }
         Ok(Self {
