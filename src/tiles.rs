@@ -45,7 +45,9 @@ impl Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
+#[derive(
+    Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, PartialOrd, Ord,
+)]
 pub enum Port {
     A, // Top left
     B, // Top right
@@ -120,6 +122,17 @@ impl Tile {
             }
         }
         panic!("Unreachable path: start={:?}, tile={:?}", start, self);
+    }
+    pub fn unique_facings(&self, from: Port) -> Vec<Direction> {
+        let mut facings = Direction::all()
+            .map(move |dir| {
+                let to = self.traverse(from, dir);
+                (dir, to)
+            })
+            .collect::<Vec<(Direction, Port)>>();
+        facings.sort_by_key(|(_, to)| *to);
+        facings.dedup_by_key(|(_, to)| *to);
+        facings.into_iter().map(|(dir, _)| dir).collect()
     }
 }
 
@@ -411,4 +424,31 @@ pub fn all_tiles() -> Vec<Tile> {
 #[test]
 fn test_all_tiles() {
     assert_eq!(all_tiles().len(), 35);
+}
+
+#[test]
+fn test_unique_facings() {
+    // Tile with symmetrical paths (all ports loop back to the same side).
+    let tile = Tile {
+        layout: [
+            (Port::A, Port::B),
+            (Port::C, Port::D),
+            (Port::E, Port::F),
+            (Port::G, Port::H),
+        ],
+    };
+    let facings = tile.unique_facings(Port::A);
+    assert_eq!(facings.len(), 1);
+
+    // Tile with all distinct paths.
+    let tile = Tile {
+        layout: [
+            (Port::A, Port::B),
+            (Port::C, Port::E),
+            (Port::D, Port::H),
+            (Port::G, Port::F),
+        ],
+    };
+    let facings = tile.unique_facings(Port::A);
+    assert_eq!(facings.len(), 4);
 }

@@ -1,7 +1,7 @@
 use crate::tiles::{Direction, Port, Tile};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Position {
     pub row: i8,
     pub col: i8,
@@ -87,7 +87,7 @@ fn test_is_valid_start() {
     );
 }
 
-#[derive(Default, Debug, Deserialize, Serialize)]
+#[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct Board {
     // 2d array of tiles and their orientations
     grid: [[Option<(Tile, Direction)>; 6]; 6],

@@ -7,8 +7,11 @@ pub trait Agent {
     fn choose_action(&self, game: &GameManager) -> (usize, Direction);
 }
 
-pub fn create_agent(_difficulty: usize) -> Box<dyn Agent + Send> {
-    Box::<AvoidSuddenDeathAgent>::default()
+pub fn create_agent(difficulty: usize) -> Box<dyn Agent + Send> {
+    match difficulty {
+        0 => Box::<AvoidSuddenDeathAgent>::default(),
+        _ => Box::<LookaheadAgent>::default(),
+    }
 }
 
 // Simple tile selection function that only tries to avoid immediate death.
@@ -19,25 +22,102 @@ impl Agent for AvoidSuddenDeathAgent {
         let my_pos = game.current_player_pos();
         let me = game.current_player();
         assert!(!me.tiles_in_hand.is_empty());
-        for (i, tile) in me.tiles_in_hand.iter().enumerate() {
-            for dir in Direction::all() {
-                let end_pos = follow_path(&game.board, my_pos, tile, dir);
-                if end_pos.alive {
-                    info!(
-                        "{}: Playing tile {} facing {:?}",
-                        me.username, i, dir
-                    );
-                    return (i, dir);
-                }
-            }
+        let name = &me.username;
+        if let Some((i, dir)) =
+            any_safe_move(&game.board, my_pos, &me.tiles_in_hand)
+        {
+            info!("{name}: Found safe tile {i} facing {dir:?}");
+            return (i, dir);
         }
         // Fallback: no safe tile to play.
-        info!(
-            "{}: No safe tile to play, playing arbitrary tile!",
-            me.username
-        );
+        info!("{name}: No safe tile to play, playing arbitrary tile!");
         (0, Direction::North)
     }
+}
+
+// Agent that looks one move ahead for safe plays.
+#[derive(Default)]
+pub struct LookaheadAgent;
+impl Agent for LookaheadAgent {
+    fn choose_action(&self, game: &GameManager) -> (usize, Direction) {
+        let my_pos = game.current_player_pos();
+        let me = game.current_player();
+        let name = &me.username;
+        let moves = all_safe_moves(&game.board, my_pos, &me.tiles_in_hand);
+        if moves.is_empty() {
+            // No safe moves, play arbitrary tile.
+            info!("{name}: No safe tile to play, playing arbitrary tile!");
+            return (0, Direction::North);
+        }
+        let backup = moves[0].1;
+        // For each safe move, check that we have at least one safe move next turn.
+        for (end_pos, (tile_idx, dir)) in moves {
+            let mut sim_board = game.board.clone();
+            sim_board.play_tile(
+                game.current_player_idx,
+                &me.tiles_in_hand[tile_idx],
+                dir,
+            );
+            let next_pos = end_pos.next_tile_position();
+            assert_eq!(
+                sim_board.players[game.current_player_idx].last().unwrap(),
+                &next_pos
+            );
+            let mut tiles = me.tiles_in_hand.clone();
+            tiles.swap_remove(tile_idx);
+            if any_safe_move(&sim_board, &next_pos, &tiles).is_some() {
+                info!(
+                    "{name}: Found safe tile {tile_idx} facing {dir:?} with safe follow-up"
+                );
+                return (tile_idx, dir);
+            }
+        }
+        // No safe follow-up moves, just play the first safe move.
+        let (tile_idx, dir) = backup;
+        info!(
+            "{name}: No safe follow-up moves, but playing safe tile {tile_idx} facing {dir:?}"
+        );
+        (tile_idx, dir)
+    }
+}
+
+fn any_safe_move(
+    board: &Board,
+    start_pos: &Position,
+    tiles: &[Tile],
+) -> Option<(usize, Direction)> {
+    for (i, tile) in tiles.iter().enumerate() {
+        for dir in Direction::all() {
+            let end_pos = follow_path(board, start_pos, tile, dir);
+            if end_pos.alive {
+                return Some((i, dir));
+            }
+        }
+    }
+    None
+}
+
+fn all_safe_moves(
+    board: &Board,
+    start_pos: &Position,
+    tiles: &[Tile],
+) -> Vec<(Position, (usize, Direction))> {
+    tiles
+        .iter()
+        .enumerate()
+        .flat_map(|(i, tile)| {
+            tile.unique_facings(start_pos.port).into_iter().filter_map(
+                move |dir| {
+                    let end_pos = follow_path(board, start_pos, tile, dir);
+                    if end_pos.alive {
+                        Some((end_pos, (i, dir)))
+                    } else {
+                        None
+                    }
+                },
+            )
+        })
+        .collect()
 }
 
 // TODO: refactor this w/ Board::play_tile
