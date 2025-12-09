@@ -1,4 +1,4 @@
-use crate::board::{Board, Position};
+use crate::board::{Board, Position, StepResult};
 use crate::game::GameManager;
 use crate::tiles::{Direction, Tile};
 use log::info;
@@ -161,7 +161,6 @@ fn all_safe_moves(
         .collect()
 }
 
-// TODO: refactor this w/ Board::play_tile
 fn follow_path(
     board: &Board,
     start_pos: &Position,
@@ -169,33 +168,18 @@ fn follow_path(
     dir: Direction,
 ) -> Position {
     // Simulate the given tile being played.
-    let mut pos = start_pos.next_tile_position();
-    let tile_row = pos.row;
-    let tile_col = pos.col;
-    pos.port = played_tile.traverse(pos.port, dir);
-    // Follow the path until we fall off the board or hit an empty tile.
+    let initial_move = start_pos.next_tile_position();
+    let tile_coords = (initial_move.row, initial_move.col);
+    let virtual_tile = Some((tile_coords, *played_tile, dir));
+
+    // First, traverse the played tile.
+    let mut current_pos = start_pos.clone();
+
     loop {
-        pos = pos.next_tile_position();
-        match board.get_tile(&pos) {
-            // Fell off the board.
-            None => {
-                pos.alive = false;
-                return pos;
-            }
-            // Hit a blank grid cell.
-            Some(None) => {
-                if pos.row == tile_row && pos.col == tile_col {
-                    // Re-traverse our initial tile (from a different port).
-                    pos.port = played_tile.traverse(pos.port, dir);
-                } else {
-                    // We hit an empty tile.
-                    return pos;
-                }
-            }
-            // Hit an existing tile, traverse and keep looping.
-            Some(Some((t, facing))) => {
-                pos.port = t.traverse(pos.port, *facing);
-            }
+        match board.step(&current_pos, virtual_tile) {
+            StepResult::Moved(new_pos) => current_pos = new_pos,
+            StepResult::OffBoard(dead_pos) => return dead_pos,
+            StepResult::Blocked(end_pos) => return end_pos,
         }
     }
 }
