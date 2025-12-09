@@ -91,6 +91,13 @@ fn test_is_valid_start() {
     );
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum StepResult {
+    Moved(Position),
+    OffBoard(Position),
+    Blocked(Position),
+}
+
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct Board {
     // 2d array of tiles and their orientations
@@ -116,6 +123,39 @@ impl Board {
         self.players.push(vec![pos]);
         Ok(self.players.len() - 1)
     }
+    pub fn step(
+        &self,
+        pos: &Position,
+        virtual_tile: Option<((i8, i8), Tile, Direction)>,
+    ) -> StepResult {
+        let mut next_pos = pos.next_tile_position();
+        let row = next_pos.row;
+        let col = next_pos.col;
+
+        if !(0..6).contains(&row) || !(0..6).contains(&col) {
+            next_pos.alive = false;
+            return StepResult::OffBoard(next_pos);
+        }
+
+        let tile_opt = if let Some(((vr, vc), t, d)) = virtual_tile {
+            if row == vr && col == vc {
+                Some((t, d))
+            } else {
+                self.grid[row as usize][col as usize]
+            }
+        } else {
+            self.grid[row as usize][col as usize]
+        };
+
+        match tile_opt {
+            Some((tile, facing)) => {
+                next_pos.port = tile.traverse(next_pos.port, facing);
+                StepResult::Moved(next_pos)
+            }
+            None => StepResult::Blocked(next_pos),
+        }
+    }
+
     pub fn play_tile(
         &mut self,
         player_idx: usize,
@@ -128,37 +168,20 @@ impl Board {
             self.grid[row as usize][col as usize] = Some((*tile, facing));
         }
         // Move all players, if still alive.
-        for trail in self.players.iter_mut() {
-            while let Some(pos) = trail.last() {
+        for i in 0..self.players.len() {
+            while let Some(pos) = self.players[i].last() {
                 if !pos.alive {
                     break;
                 }
-                let (d_row, d_col) = pos.port.facing_side().grid_offsets();
-                let row = pos.row + d_row;
-                let col = pos.col + d_col;
-                if !(0..6).contains(&row) || !(0..6).contains(&col) {
-                    let port = pos.port.flip();
-                    trail.push(Position {
-                        row,
-                        col,
-                        port,
-                        alive: false,
-                    });
-                    break;
-                }
-                match self.grid[row as usize][col as usize] {
-                    // Hit another tile, traverse and keep looping.
-                    Some((t, facing)) => {
-                        let port = t.traverse(pos.port.flip(), facing);
-                        trail.push(Position {
-                            row,
-                            col,
-                            port,
-                            alive: true,
-                        });
+                // We need to clone pos to avoid borrowing self.players immutably while self is needed for step
+                let pos = pos.clone();
+                match self.step(&pos, None) {
+                    StepResult::Moved(new_pos) => self.players[i].push(new_pos),
+                    StepResult::OffBoard(dead_pos) => {
+                        self.players[i].push(dead_pos);
+                        break;
                     }
-                    // Hit a blank cell, stop iterating.
-                    None => break,
+                    StepResult::Blocked(_) => break,
                 }
             }
         }
