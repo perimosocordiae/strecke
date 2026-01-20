@@ -1,6 +1,9 @@
 use rand::distr::{Distribution, Uniform};
+use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use strecke::board;
+use strecke::board::edge_position;
+use strecke::tiles::Port;
 
 const MAX_PLAYERS: usize = 11;
 // No I,O
@@ -122,18 +125,55 @@ impl Lobby {
         if num_humans < self.max_num_players {
             self.names.truncate(num_humans);
             self.start_positions.truncate(num_humans);
-            let range = Uniform::try_from(0..48).unwrap();
             let mut rng = rand::rng();
             for i in 0..(self.max_num_players - num_humans) {
                 self.names.push(format!("AI player #{}", i + 1));
-                // Assign a random starting location that isn't in use.
-                // TODO: enforce separation constraints
-                loop {
-                    let pos = range.sample(&mut rng);
-                    if !self.start_positions.contains(&pos) {
-                        self.start_positions.push(pos);
-                        break;
+                // Assign a starting location with max separation from other players.
+                let candidates: Vec<board::EdgePos> = (0..48)
+                    .map(|x| x as board::EdgePos)
+                    .filter(|x| !self.start_positions.contains(x))
+                    .collect();
+
+                if candidates.is_empty() {
+                    break;
+                }
+
+                // Helper to get entry tile coords
+                let get_coords = |pos: board::EdgePos| {
+                    let p = board::edge_position(pos);
+                    let next = p.next_tile_position();
+                    (next.row, next.col)
+                };
+
+                let best_candidates = if self.start_positions.is_empty() {
+                    candidates
+                } else {
+                    let mut max_min_dist = -1;
+                    let mut bests = Vec::new();
+
+                    for &cand in &candidates {
+                        let (r, c) = get_coords(cand);
+                        let mut min_dist = i32::MAX;
+                        for &existing in &self.start_positions {
+                            let (er, ec) = get_coords(existing);
+                            let dist = (r - er).abs() as i32 + (c - ec).abs() as i32;
+                            if dist < min_dist {
+                                min_dist = dist;
+                            }
+                        }
+
+                        if min_dist > max_min_dist {
+                            max_min_dist = min_dist;
+                            bests = vec![cand];
+                        } else if min_dist == max_min_dist {
+                            bests.push(cand);
+                        }
                     }
+                    bests
+                };
+
+                if let Some(&chosen) = best_candidates.choose(&mut rng) {
+                    self.start_positions.push(chosen);
                 }
             }
         }
@@ -248,4 +288,51 @@ fn test_edge_position() {
             alive: true
         }
     );
+}
+
+#[test]
+fn test_ai_separation() {
+    let mut lobby = Lobby::new("Alice".to_string());
+    // Host takes seat 0 (Top-Left, entering (0,0))
+    lobby.take_seat(0, "Alice".to_string()).unwrap();
+
+    // Resize to 2 players (1 human, 1 AI)
+    lobby.resize(2).unwrap();
+
+    lobby.prepare_for_game();
+
+    // Verify positions
+    let positions = &lobby.start_positions;
+    assert_eq!(positions.len(), 2);
+
+    let p0 = board::edge_position(positions[0]);
+    let p1 = board::edge_position(positions[1]);
+
+    let p0_next = p0.next_tile_position();
+    let p1_next = p1.next_tile_position();
+
+    let dist = (p0_next.row - p1_next.row).abs() + (p0_next.col - p1_next.col).abs();
+
+    // With 2 players, they should be very far apart.
+    assert!(dist >= 5, "AI spawned too close! dist={}", dist);
+}
+
+#[test]
+fn test_ai_separation_many() {
+    let mut lobby = Lobby::new("Alice".to_string());
+    lobby.take_seat(0, "Alice".to_string()).unwrap();
+    lobby.resize(11).unwrap(); // Max players
+    lobby.prepare_for_game();
+
+    let positions = &lobby.start_positions;
+    assert_eq!(positions.len(), 11);
+
+    for i in 0..positions.len() {
+        for j in (i + 1)..positions.len() {
+             let p1 = board::edge_position(positions[i]).next_tile_position();
+             let p2 = board::edge_position(positions[j]).next_tile_position();
+             let dist = (p1.row - p2.row).abs() + (p1.col - p2.col).abs();
+             assert!(dist > 0, "Players {} and {} share entry tile!", i, j);
+        }
+    }
 }
