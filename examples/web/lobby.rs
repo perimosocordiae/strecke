@@ -1,5 +1,5 @@
 use rand::distr::{Distribution, Uniform};
-use rand::prelude::IndexedRandom;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use strecke::board;
 use strecke::board::edge_position;
@@ -125,59 +125,127 @@ impl Lobby {
         if num_humans < self.max_num_players {
             self.names.truncate(num_humans);
             self.start_positions.truncate(num_humans);
-            let mut rng = rand::rng();
-            for i in 0..(self.max_num_players - num_humans) {
+            let num_ai = self.max_num_players - num_humans;
+            for i in 0..num_ai {
                 self.names.push(format!("AI player #{}", i + 1));
-                // Assign a starting location with max separation from other players.
-                let candidates: Vec<board::EdgePos> = (0..48)
-                    .map(|x| x as board::EdgePos)
-                    .filter(|x| !self.start_positions.contains(x))
-                    .collect();
+            }
 
-                if candidates.is_empty() {
+            let ai_positions = solve_ai_placements(&self.start_positions, num_ai);
+            self.start_positions.extend(ai_positions);
+        }
+    }
+}
+
+fn get_entry_dist(pos1: board::EdgePos, pos2: board::EdgePos) -> i32 {
+    let p1 = board::edge_position(pos1).next_tile_position();
+    let p2 = board::edge_position(pos2).next_tile_position();
+    (p1.row - p2.row).abs() as i32 + (p1.col - p2.col).abs() as i32
+}
+
+fn solve_ai_placements(
+    fixed_positions: &[board::EdgePos],
+    num_ai: usize,
+) -> Vec<board::EdgePos> {
+    if num_ai == 0 {
+        return Vec::new();
+    }
+
+    // Precompute distances
+    let mut dist_matrix = [[0; 48]; 48];
+    for i in 0..48 {
+        for j in 0..48 {
+            dist_matrix[i][j] = get_entry_dist(i as i8, j as i8);
+        }
+    }
+
+    let mut rng = rand::rng();
+
+    // Create a random permutation for search order to ensure variety
+    let mut perm: Vec<usize> = (0..48).collect();
+    perm.shuffle(&mut rng);
+
+    // Search for the max possible min_dist (d)
+    // Max L1 distance on grid is around 14.
+    for d in (0..=15).rev() {
+        // Step 1: Filter candidates compatible with fixed positions
+        let mut valid_mask: u64 = 0;
+        for i in 0..48 {
+            // i is the permuted index. The actual board pos is perm[i].
+            let board_pos_idx = perm[i];
+
+            // Check if this position is already taken by fixed players
+            if fixed_positions.contains(&(board_pos_idx as i8)) {
+                continue;
+            }
+
+            // Check distance to all fixed players
+            let mut compatible_with_fixed = true;
+            for &fixed in fixed_positions {
+                if dist_matrix[board_pos_idx][fixed as usize] < d {
+                    compatible_with_fixed = false;
                     break;
                 }
+            }
 
-                // Helper to get entry tile coords
-                let get_coords = |pos: board::EdgePos| {
-                    let p = board::edge_position(pos);
-                    let next = p.next_tile_position();
-                    (next.row, next.col)
-                };
+            if compatible_with_fixed {
+                valid_mask |= 1u64 << i;
+            }
+        }
 
-                let best_candidates = if self.start_positions.is_empty() {
-                    candidates
-                } else {
-                    let mut max_min_dist = -1;
-                    let mut bests = Vec::new();
-
-                    for &cand in &candidates {
-                        let (r, c) = get_coords(cand);
-                        let mut min_dist = i32::MAX;
-                        for &existing in &self.start_positions {
-                            let (er, ec) = get_coords(existing);
-                            let dist = (r - er).abs() as i32 + (c - ec).abs() as i32;
-                            if dist < min_dist {
-                                min_dist = dist;
-                            }
-                        }
-
-                        if min_dist > max_min_dist {
-                            max_min_dist = min_dist;
-                            bests = vec![cand];
-                        } else if min_dist == max_min_dist {
-                            bests.push(cand);
-                        }
-                    }
-                    bests
-                };
-
-                if let Some(&chosen) = best_candidates.choose(&mut rng) {
-                    self.start_positions.push(chosen);
+        // Step 2: Build compatibility bitmasks for internal consistency
+        // compat[i] contains bit j if dist(perm[i], perm[j]) >= d
+        let mut compat = [0u64; 48];
+        for i in 0..48 {
+            for j in 0..48 {
+                if i == j { continue; }
+                if dist_matrix[perm[i]][perm[j]] >= d {
+                    compat[i] |= 1u64 << j;
                 }
             }
         }
+
+        // Step 3: Find a clique of size num_ai
+        if let Some(solution_mask) = find_clique(valid_mask, num_ai, &compat) {
+            // Found a solution! Convert back to board positions.
+            let mut result = Vec::with_capacity(num_ai);
+            for i in 0..48 {
+                if (solution_mask & (1 << i)) != 0 {
+                    result.push(perm[i] as board::EdgePos);
+                }
+            }
+            return result;
+        }
     }
+
+    Vec::new()
+}
+
+fn find_clique(candidates: u64, needed: usize, compat: &[u64]) -> Option<u64> {
+    if needed == 0 {
+        return Some(0);
+    }
+
+    if candidates.count_ones() < needed as u32 {
+        return None;
+    }
+
+    let mut remaining = candidates;
+    while remaining != 0 {
+        let idx = remaining.trailing_zeros() as usize;
+        let bit = 1u64 << idx;
+
+        // Next candidates must be in candidates AND compatible with current
+        // AND have index > current (to avoid permutations/duplicates)
+        let next_candidates = candidates & compat[idx] & !((bit << 1) - 1);
+
+        if let Some(res) = find_clique(next_candidates, needed - 1, compat) {
+            return Some(res | bit);
+        }
+
+        remaining &= !bit;
+    }
+
+    None
 }
 
 #[inline(always)]
@@ -314,7 +382,8 @@ fn test_ai_separation() {
     let dist = (p0_next.row - p1_next.row).abs() + (p0_next.col - p1_next.col).abs();
 
     // With 2 players, they should be very far apart.
-    assert!(dist >= 5, "AI spawned too close! dist={}", dist);
+    // Optimal is 10.
+    assert!(dist >= 9, "AI spawned too close! dist={}", dist);
 }
 
 #[test]
